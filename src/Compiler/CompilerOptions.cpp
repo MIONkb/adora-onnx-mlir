@@ -25,7 +25,9 @@
 const std::string OnnxMlirEnvOptionName = "ONNX_MLIR_FLAGS";
 
 namespace onnx_mlir {
+bool disableMemRefPrefetch;                            // common for both
 
+#ifndef _OMIT_FOLLOWING_PART_FOR_ADORA
 // Use external storage for the options so that they are globally accessible
 std::string inputFilename;                             // common for both
 std::string outputBaseName;                            // common for both
@@ -46,7 +48,7 @@ bool disableKrnlOpFusion;                              // common for both
 bool disableQuantZeroPoint;                            // common for both
 bool enableKrnlBufferReuse;                            // common for both
 bool enableSafeCodeGen;                                // common for both
-bool disableMemRefPrefetch;                            // common for both
+
 uint64_t compilationNumThreads;                        // common for both
 EmissionTargetType emissionTarget;                     // onnx-mlir only
 bool invokeOnnxVersionConverter;                       // onnx-mlir only
@@ -870,6 +872,7 @@ void setTargetArch(const std::string &arch) {
 }
 
 void clearTargetArch() { march.clear(); }
+#endif /// END OF _OMIT_FOLLOWING_PART_FOR_ADORA
 
 // Sort out architectures for Z systems (hybrid archXX and zYY names).
 static int64_t decodeZArchNum(std::string str) {
@@ -884,6 +887,7 @@ static int64_t decodeZArchNum(std::string str) {
   return -1;
 }
 
+
 int64_t getZArchNum(const std::string &arch, const std::string cpu) {
   // Give priority to march, use (deprecated) mcpu if march is not defined.
   int64_t num = decodeZArchNum(arch);
@@ -892,6 +896,8 @@ int64_t getZArchNum(const std::string &arch, const std::string cpu) {
   return num;
 }
 
+
+#ifndef _OMIT_FOLLOWING_PART_FOR_ADORA
 std::string getTargetArchOption(bool forLLVMToolchain) {
   // LLVM toolchain wants a --march=systemz for all z machines; the specific
   // Z architecture will be specified with the LLVM Toolchain --mcpu.
@@ -1390,5 +1396,7 @@ void initCompilerConfig() {
   if (march == "z17")
     march = "arch15";
 }
+
+#endif // _OMIT_FOLLOWING_PART_FOR_ADORA
 
 } // namespace onnx_mlir

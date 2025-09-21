@@ -1,0 +1,274 @@
+OVERVIEW: ONNX-MLIR - A modular optimizer driver
+
+USAGE: adora-onnx-opt [options] <input file>
+
+OPTIONS:
+
+General options:
+
+  --allow-ginsert-as-artifact                                                       - Allow G_INSERT to be considered an artifact. Hack around AMDGPU test infinite loops.
+  --debugify-func-limit=<ulong>                                                     - Set max number of processed functions per pass.
+  --debugify-level=<value>                                                          - Kind of debug info to add
+    =locations                                                                      -   Locations only
+    =location+variables                                                             -   Locations and Variables
+  --debugify-quiet                                                                  - Suppress verbose debugify output
+  --disable-auto-upgrade-debug-info                                                 - Disable autoupgrade of debug info
+  --disable-i2p-p2i-opt                                                             - Disables inttoptr/ptrtoint roundtrip optimization
+  --dot-cfg-mssa=<file name for generated dot file>                                 - file name for generated dot file
+  --enable-cse-in-irtranslator                                                      - Should enable CSE in irtranslator
+  --enable-cse-in-legalizer                                                         - Should enable CSE in Legalizer
+  --enable-name-compression                                                         - Enable name/filename string compression
+  --enable-split-loopiv-heuristic                                                   - Enable loop iv regalloc heuristic
+  --enable-vtable-profile-use                                                       - If ThinLTO and WPD is enabled and this option is true, vtable profiles will be used by ICP pass for more efficient indirect call sequence. If false, type profiles won't be used.
+  --enable-vtable-value-profiling                                                   - If true, the virtual table address will be instrumented to know the types of a C++ pointer. The information is used in indirect call promotion to do selective vtable-based comparison.
+  --experimental-debug-variable-locations                                           - Use experimental new value-tracking variable locations
+  --experimental-debuginfo-iterators                                                - Enable communicating debuginfo positions through iterators, eliminating intrinsics. Has no effect if --preserve-input-debuginfo-format=true.
+  --fs-profile-debug-bw-threshold=<uint>                                            - Only show debug message if the source branch weight is greater  than this value.
+  --fs-profile-debug-prob-diff-threshold=<uint>                                     - Only show debug message if the branch probability is greater than this value (in percentage).
+  --generate-merged-base-profiles                                                   - When generating nested context-sensitive profiles, always generate extra base profile for function with all its context profiles merged into it.
+  --mir-strip-debugify-only                                                         - Should mir-strip-debug only strip debug info from debugified modules by default
+  --mlir-disable-threading                                                          - Disable multi-threading within MLIR, overrides any further call to MLIRContext::enableMultiThreading()
+  --mlir-elide-elementsattrs-if-larger=<uint>                                       - Elide ElementsAttrs with "..." that have more elements than the given upper limit
+  --mlir-elide-resource-strings-if-larger=<uint>                                    - Elide printing value of resources if string is too long in chars.
+  --mlir-pass-pipeline-crash-reproducer=<string>                                    - Generate a .mlir reproducer file at the given output path if the pass manager crashes or fails
+  --mlir-pass-pipeline-local-reproducer                                             - When generating a crash reproducer, attempt to generated a reproducer with the smallest pipeline.
+  --mlir-pass-statistics                                                            - Display the statistics of each pass
+  --mlir-pass-statistics-display=<value>                                            - Display method for pass statistics
+    =list                                                                           -   display the results in a merged list sorted by pass name
+    =pipeline                                                                       -   display the results with a nested pipeline view
+  --mlir-pretty-debuginfo                                                           - Print pretty debug info in MLIR output
+  --mlir-print-debuginfo                                                            - Print debug info in MLIR output
+  --mlir-print-elementsattrs-with-hex-if-larger=<long>                              - Print DenseElementsAttrs with a hex string that have more elements than the given upper limit (use -1 to disable)
+  --mlir-print-ir-after=<pass-arg>                                                  - Print IR after specified passes
+  --mlir-print-ir-after-all                                                         - Print IR after each pass
+  --mlir-print-ir-after-change                                                      - When printing the IR after a pass, only print if the IR changed
+  --mlir-print-ir-after-failure                                                     - When printing the IR after a pass, only print if the pass failed
+  --mlir-print-ir-before=<pass-arg>                                                 - Print IR before specified passes
+  --mlir-print-ir-before-all                                                        - Print IR before each pass
+  --mlir-print-ir-module-scope                                                      - When printing IR for print-ir-[before|after]{-all} always print the top-level operation
+  --mlir-print-ir-tree-dir=<string>                                                 - When printing the IR before/after a pass, print file tree rooted at this directory. Use in conjunction with mlir-print-ir-* flags
+  --mlir-print-local-scope                                                          - Print with local scope and inline information (eliding aliases for attributes, types, and locations
+  --mlir-print-op-on-diagnostic                                                     - When a diagnostic is emitted on an operation, also print the operation as an attached note
+  --mlir-print-skip-regions                                                         - Skip regions when printing ops.
+  --mlir-print-stacktrace-on-diagnostic                                             - When a diagnostic is emitted, also print the stack trace as an attached note
+  --mlir-print-unique-ssa-ids                                                       - Print unique SSA ID numbers for values, block arguments and naming conflicts across all regions
+  --mlir-print-value-users                                                          - Print users of operation results and block arguments as a comment
+  --mlir-use-nameloc-as-prefix                                                      - Print SSA IDs using NameLocs as prefixes
+  --object-size-offset-visitor-max-visit-instructions=<uint>                        - Maximum number of instructions for ObjectSizeOffsetVisitor to look at
+  --riscv-add-build-attributes                                                      - 
+  --riscv-use-aa                                                                    - Enable the use of AA during codegen.
+  --sample-profile-check-record-coverage=<N>                                        - Emit a warning if less than N% of records in the input profile are matched to the IR.
+  --sample-profile-check-sample-coverage=<N>                                        - Emit a warning if less than N% of samples in the input profile are matched to the IR.
+  --sample-profile-max-propagate-iterations=<uint>                                  - Maximum number of iterations to go through when propagating sample block/edge weights through the CFG.
+  --verify-legalizer-debug-locs=<value>                                             - Verify that debug locations are handled
+    =none                                                                           -   No verification
+    =legalizations                                                                  -   Verify legalizations
+    =legalizations+artifactcombiners                                                -   Verify legalizations and artifact combines
+  --write-experimental-debuginfo                                                    - Write debug info in the new non-intrinsic format. Has no effect if --preserve-input-debuginfo-format=true.
+  --x86-align-branch=<string>                                                       - Specify types of branches to align (plus separated list of types):
+                                                                                      jcc      indicates conditional jumps
+                                                                                      fused    indicates fused conditional jumps
+                                                                                      jmp      indicates direct unconditional jumps
+                                                                                      call     indicates direct and indirect calls
+                                                                                      ret      indicates rets
+                                                                                      indirect indicates indirect unconditional jumps
+  --x86-align-branch-boundary=<uint>                                                - Control how the assembler should align branches with NOP. If the boundary's size is not 0, it should be a power of 2 and no less than 32. Branches will be aligned to prevent from being across or against the boundary of specified size. The default value 0 does not align branches.
+  --x86-branches-within-32B-boundaries                                              - Align selected instructions to mitigate negative performance impact of Intel's micro code update for errata skx102.  May break assumptions about labels corresponding to particular instructions, and should be used with caution.
+  --x86-pad-max-prefix-size=<uint>                                                  - Maximum number of prefixes to use for padding
+
+Generic Options:
+
+  --help                                                                            - Display available options (--help-hidden for more)
+  --help-list                                                                       - Display list of available options (--help-list-hidden for more)
+  --version                                                                         - Display the version of this program
+
+common options:
+These are options shared between onnx-mlir and onnx-mlir-opt.
+
+  Levels:
+      --O0                                                                             - Optimization level 0 (default).
+      --O1                                                                             - Optimization level 1.
+      --O2                                                                             - Optimization level 2.
+      --O3                                                                             - Optimization level 3, SIMD is enabled.
+  --disable-constant-prop                                                           - Disable Constant Propagation (default is false).
+                                                                                      Set to 'true' to disable Constant Propagation.
+  --disable-krnl-op-fusion                                                          - Disable op fusion in onnx-to-krnl pass (default=false).
+                                                                                      Set to 'true' if you want to disable fusion.
+  --disable-memref-prefetch                                                         - Disable generation of memref.prefetch (default=false).
+                                                                                      Set to 'true' if you want to disable prefetch.
+  --disable-quantization-zero-point                                                 - Disable the use of zero-point in quantization (default=false).
+                                                                                      Set to 'true' if you want to disable the use of zero-point
+                                                                                      in dyn/static quantization/dequantization.
+  --enable-krnl-buffer-reuse                                                        - enable buffer reuse within an op in onnx-to-krnl pass (default=false).
+                                                                                      Set to 'true' if you want to enable buffer reuse.
+  --enable-safe-code-gen                                                            - enable extra runtime check to be created in code gen. Such check will have cost at runtime, and is not needed ifthe model and the data are correct.Failure of check will trigger assertion error.(default=false).
+                                                                                      Set to 'true' if you want to enable the check.
+  --functions-to-decompose=<string>                                                 - Specify ONNX functions to decompose.
+  --instrument-stage=<value>                                                        - Specify stage to be instrumented:
+    =Onnx                                                                           -   Profile for onnx ops.
+  -j <ulong>                                                                        - Use <int> threads for compilation. The default value is 0, which spawns threads for all available CPUs.
+  --maccel=<value>                                                                  - Specify an accelerator to generate code for.
+    =NONE                                                                           -   No accelerator
+  --march=<Target a specific architecture type>                                     - Target architecture to generate code for.
+  --mcpu=<Target a specific CPU type>                                               - Target cpu.
+  --mtriple=<LLVM target triple>                                                    - Override target triple for module.
+  --nnpa-epsilon=<Float value>                                                      - A value added to inputs during computations to prevent undefined mathematical operations, 
+                                                                                      such as division by zero or logarithms of zero. Default value set to 1e-5.
+  -o <path>                                                                         - For onnx-mlir, specify the base path for output file, extension will be added.
+                                                                                      Default is input filename without the extension, or "stdin" if input is stdin.
+                                                                                      For onnx-mlir-opt, specify the output filename. Default is stdout.
+  --onnx-const-prop-disable-pattern=<named constant propagation pattern to disable> - Named constant propagation pattern to disable.
+                                                                                      Repeat the flag to disable multiple patterns.
+  --onnx-const-prop-expansion-bound=<int>                                           - ONNX dialect constant propagation maximum expansion factor
+                                                                                      Constants are not propagated if their bytes size exceed the aggregate operands' sizes by more than this factor
+                                                                                      Set to -1 to always propagate, which is the default.
+  --onnx-const-prop-round-fp-to-int                                                 - If true constant propagates onnx.Cast from a floating point type to an integer type by rounding to nearest, ties to even.
+                                                                                      If false truncates towards zero.
+  --onnx-hybrid-pass                                                                - Enable ONNX hybrid pass (default=true).
+                                                                                      Set to 'false' if you want to disable ONNX hybrid pass.
+
+onnx-mlir options:
+These are onnx-mlir frontend options.
+
+  Choose target to emit:
+      --EmitONNXBasic                                                                  - Ingest ONNX and emit the basic ONNX operations without inferred shapes.
+      --EmitONNXIR                                                                     - Ingest ONNX and emit corresponding ONNX dialect.
+      --EmitMLIR                                                                       - Lower the input to MLIR built-in transformation dialect.
+      --EmitLLVMIR                                                                     - Lower the input to LLVM IR (LLVM MLIR dialect).
+      --EmitObj                                                                        - Compile the input into a object file.
+      --EmitLib                                                                        - Compile the input into a shared library (default).
+      --EmitJNI                                                                        - Compile the input into a jar file.
+  Specify what instrumentation actions at runtime:
+      --InstrumentBeforeOp                                                             - insert instrument before op,
+      --InstrumentAfterOp                                                              - insert instrument after op,
+      --InstrumentReportTime                                                           - instrument runtime reports time usage,
+      --InstrumentReportMemory                                                         - instrument runtime reports memory usage.
+  -L <string>                                                                       - Specify extra directories for libraries when compiling an onnx model. Will be add used as -L in the linkage step.
+                                                                                      Each directory can be specified with one extra-lib-dirs.
+  --allowSorting                                                                    - Perform topological sort on onnx graph.
+  --constants-to-file-single-threshold=<number>                                     - Put global constants to a file if a single constant's size in bytes is greater than this threshold.
+                                                                                      store-constants-to-file must be enabled for this to be effective.
+                                                                                      Total sizes in bytes of satisfied constants must be greater than constants-to-file-total-threshold. Value is in KB. Default is 1KB.
+  --constants-to-file-total-threshold=<number>                                      - Put global constants to a file if the total size in bytes of constants is greater than this threshold.
+                                                                                      store-constants-to-file must be enabled for this to be effective.
+                                                                                      Only count constants whose size is greater than constants-to-file-single-threshold. Value is in GB. Default is 1.5GB.
+  --customEnvFlags=<option env var>                                                 - Override default option env var OnnxMlirEnvOptionName: ONNX_MLIR_FLAGS.
+  --dimParams=<value>                                                               - Custom onnx.dim_params attributes for the inputs of the ONNX model for specifying relationship among dynamic dimensions of the inputs.
+                                                                                      "value" is in the format of "INPUT_ID1:D1=S1,D2=S2,...,Dn=Sn|INPUT_ID2:D1=T1,D2=T2,...Dn=Tn|..." where "INPUT_ID1, INPUT_ID2, ..." are input indices (starting from 0 or being -1 for all input indices), and
+                                                                                      "S1, S2, ..." and "T2, T2, ..." are symbols to specify that same symbols have the same value. All dimensions of onnx.dim_params for a specified input index in the original onnx model are cleared and replaced by this option. onnx.dim_params for other input indices in the original onnx model are not cleared
+  --disable-recompose                                                               - Disable recomposition of ONNX operations.
+  --disable-simd                                                                    - Disable SIMD optimizations (default=false). Set to `true` to disable SIMD at O3.
+  --do-not-emit-full-mlir-code                                                      - Do not emit the MLIR the constant values are embeded (<name>onnx.mlir). Emit only the MLIR without the constants (<name>.tmp). Need to be used with emitting MLIR options such as --EmitONNXIR and --EmitMLIR.
+  --enable-bound-check                                                              - Enable runtime bound check for memrefs (default is false).
+                                                                                      Set to 'true' if you want to enable the check.
+  --enable-conv-opt-pass                                                            - Enable the ConvOptPass. Default is true.
+  --enable-fast-math                                                                - Enable fast math optimizations (default=false). Set to `true` to enable fast math options at O3.
+  --enable-timing                                                                   - Enable compile timing (default is false)
+                                                                                      Set to 'true' if you want to enable compile timing.
+  --instrument-onnx-node=<string>                                                   - Specify which onnx operation node will be selected for 
+                                                                                      inserting a runtime call after the node to print the data of
+                                                                                      their input/output tensors.
+                                                                                      The ops are selected by their onnx node name, which is a string
+                                                                                      attribute unique to each onnx node (most of time).
+                                                                                      You can find them in the output of --EmitONNXIR
+                                                                                      Other instrumentation in onnx-mlir is specified by op->getName(),
+                                                                                      namely, the type of onnx operation, such Add, Matmul, and etc.
+                                                                                      This option is able to pinpoint to a particular node.
+                                                                                      The instrument-onnx-node defines the pattern to select.
+                                                                                      "NONE" for no instrument (default).
+                                                                                      Except for the special values, the regexp is used for matching.
+                                                                                      "/layer1/MatMul, onnx.Add_0, ..." for the multiple nodes.
+                                                                                      Asterisk is also available. For example:
+                                                                                      "onnx.Add_*" for all AddOp. This feature allows you to specify
+                                                                                      part of the target of onnx_node_name, as long as it is long enough
+                                                                                      to be unique.
+  --instrument-ops=<string>                                                         - Specify operations to be instrumented:
+                                                                                      "NONE" or "" for no instrument (default).
+                                                                                      "ALL" for instrument of all ops.
+                                                                                      "ops1,ops2, ..." for the multiple ops.
+                                                                                      e.g. "onnx.Conv,onnx.Add" for Conv and Add ops.
+                                                                                      Asterisk is also available.
+                                                                                      e.g. "onnx.*" for all onnx operations.
+  --instrument-signature=<string>                                                   - Specify which high-level operations should be selected for printing
+                                                                                      the type and shape of their input/output tensors.
+                                                                                      The ops are selected by their op name.
+                                                                                      The instrument-signature defines the pattern to select the ops.
+                                                                                      "NONE" for no instrument (default).
+                                                                                      "ALL" or "" for all available operations.
+                                                                                      Except for the special values, the regexp is used for matching.
+                                                                                      "ops1,ops2, ..." for the multiple ops.
+                                                                                      e.g. "onnx.MatMul,onnx.Add" for MatMul and Add op in onnx dialect.
+                                                                                      Asterisk is also available.
+                                                                                      e.g. "onnx.*" for all onnx operations.
+  --invokeOnnxVersionConverter                                                      - Call onnx version converter to convert ONNX model to current version.
+  -l <string>                                                                       - Specify extra libraries when compiling an onnx model.Will be add used as -l in the linkage step.
+                                                                                      Each lib can be specified with one extra-libs.
+  --modelSize=<value>                                                               - Model to generate code:
+    =small                                                                          -   Generate code for the small model. No special treatment at this moment. This is the default code model.
+    =large                                                                          -   Generate code for the large model. Global constants are put into large read-only data section.
+  --onnx-op-stats=<string>                                                          - Report the occurrence frequency of ONNX ops in JSON or TXT format:
+                                                                                      "TXT" for report as text,
+                                                                                      "JSON" for report as JSON.
+                                                                                      Requires targets like --EmitMLIR, --EmitLLVMIR, or binary-generating commands.
+  --onnx-op-transform-report                                                        - Report diagnostic info for ONNX op transform/optimization passes.
+  --onnx-op-transform-threshold=<int>                                               - Max iteration for dynamic op transform passes (default=3).
+                                                                                      If set to 0, onnxOpTransformPass will be disabled, and
+                                                                                      static iteration will be used.
+  --ops-for-call=<string>                                                           - Specify which ops are lowered to knrl.call instead of krnl loops. op name are used to check against this option.
+                                                                                      Names of opa are separated with space. Example: ops-for-call=Conv MatMul.
+                                                                                      The regex match will be used to check against op name.
+  --opt-report=<value>                                                              - Provide information on a specific compiler optimization:
+    =NoReport                                                                       -   No report. Default value.
+    =Parallel                                                                       -   Provide report on how OMP Parallel is applied to ONNX ops.
+    =Simd                                                                           -   Provide report on how SIMD is applied to ONNX ops.
+  --parallel                                                                        - Enable parallelization (default=false)
+                                                                                      Set to 'true' if you want to enable parallelization.
+  --parallelize-ops=<string>                                                        - Specify explicitly which operations to parallelize:
+                                                                                      "ALL" or "" for all available operations (default).
+                                                                                      "NONE" for no instrument.
+                                                                                      "ops1,ops2, ..." for the multiple ops.
+                                                                                      e.g. "onnx.MatMul,onnx.Add" for MatMul and Add ops.
+                                                                                      Asterisk is also available.
+                                                                                      e.g. "onnx.*" for all onnx operations.
+  --preserveBitcode                                                                 - Preserve the bitcode files (optimized and unoptimized).
+  --preserveLLVMIR                                                                  - Preserve the LLVMIR files.
+  --preserveLocations                                                               - Emit location data.
+  --preserveMLIR                                                                    - Preserve the MLIR files (input and llvm).
+  --printIR                                                                         - Print the IR to stdout:.
+  --profile-ir=<value>                                                              - Profile operations in an IR:
+    =None                                                                           -   No profiling. Default value.
+    =Onnx                                                                           -   Profile operations in ONNXIR generated by --EmitONNXIR.
+  --repeatOnnxTransform=<int>                                                       - Invoke extra onnx transform pass(shape inference, constant and etc.).
+  --report-heap-after=<string>                                                      - A list of names of passes.
+                                                                                      After each heap statistics are dumped to <output-files-base-path>.heap.log.
+  --report-heap-before=<string>                                                     - A list of names of passes.
+                                                                                      Before each heap statistics are dumped to <output-files-base-path>.heap.log.
+  --shapeInformation=<value>                                                        - Custom shapes for the inputs of the ONNX model, e.g. setting static shapes for dynamic inputs.
+                                                                                      "value" is in the format of "INPUT_ID1:D1xD2x...xDn,INPUT_ID2:D1xD2x...xDn, ...",
+                                                                                      where "INPUT_ID1, INPUT_ID2, ..." are input indices (starting from 0 or being -1 for all input indices), and
+                                                                                      "D1, D2, ..." are dimension sizes (positive integers or -1 for unknown dimensions).
+  --simd-data-layout                                                                - Enable SIMD optimization for convolution (default=false).
+                                                                                      Set to 'true' if you want to enable SIMD optimizations.
+  --store-constants-to-file                                                         - Constants will be stored on a binary file instead of be embedded into the model.so when compiling a big model.
+                                                                                      The binary file is in the same folder as the model.so and has the same name as the model with the extension of .constants.bin.
+                                                                                      For inference, model.constants.bin must be at the same folder as the inference program.
+                                                                                      If model.constants.bin is at another folder, use the environment variable OM_CONSTANT_PATH to set the constant folder.
+                                                                                      When using this option, two other options constants-to-file-single-threshold and constants-to-file-total-threshold can be used to fine-tune the amount of constants stored on the file.
+                                                                                      Default is True.
+  --tag=<a string that matches regex ([0-9a-z_.-]+)>                                - Set a tag that will be used to postfix symbols in the generated LLVMIR to make the symbols unique across multiple generated models.
+                                                                                      By default, use the filename (without extension) of the input onnx model or the value passed to `-o`.
+                                                                                      The tag will be appended to global variable and function names. For backward compatibility, each function has two versions with the same signature and doing the same computation.
+                                                                                      For example, we will have two entry points: `run_main_graph` and `run_main_graph_tag`, where `run_main_graph` is just a wrapper of `run_main_graph_tag`.
+                                                                                      Users can call one of the entry points and expect the same result.
+                                                                                      Passing `NONE` to `--tag` will disable tag completely, meaning no tag is appended to the symbols.
+  --test-compiler-opt                                                               - Help compiler writers test a new (small) optimization. When false, the old approach should be used.
+                                                                                      When true, the new opt should be used. Utilities such as CheckONNXModel.py can then verify that the new opt deliver the same results.
+                                                                                      E.g. CheckONNXModel.py -m test.mlir -t -O3 -a test-compiler-opt=true.
+                                                                                      Once the new opt works, it should not rely this option any more.
+                                                                                      Only defined in DEBUG build and default to false.
+  --use-old-bufferization                                                           - Enable the old LLVM bufferization mechanism (default=true).
+                                                                                      This option should be removed once the new LLVM bufferization works well in onnx-mlir.
+  --useOnnxModelTypes                                                               - Use types and shapes from ONNX model.
+  -v                                                                                - Use verbose output.
+  --verifyInputTensors                                                              - Verify input tensors whenever the entry point function is called.
+                                                                                      Data type and shape are verified. Enable this may introduce overhead at runtime.

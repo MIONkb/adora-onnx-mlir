@@ -188,3 +188,10 @@ dmypy.json
 .vscode
 .devcontainer
 .vs
+
+
+### 
+*.zip
+.gitpush.sh
+third_party/llvm-project-onnx/*
+third_party/protobuf/*

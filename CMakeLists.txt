@@ -225,3 +225,10 @@ else()
   add_subdirectory(docs)
   add_subdirectory(test)
 endif()
+
+# ADORA_ONNX_OPT
+option(ADORA_INSTALL_DIR "ADORA INSTALL PATH" ----)
+option(ENABLE_ADORA_ONNX_OPT "Enable ONNX→ADORA tensor pipeline" ON)
+if (ENABLE_ADORA_ONNX_OPT)
+  add_subdirectory(adora-tools)
+endif()
