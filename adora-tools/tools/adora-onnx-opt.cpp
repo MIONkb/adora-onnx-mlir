@@ -5,38 +5,95 @@
 //===------------------ onnx-mlir.cpp - Compiler Driver  ------------------===//
 //
 // Copyright 2019-2025 The IBM Research Authors.
+// Copyright 2025 ADORA.
 //
 // =============================================================================
-// Main function for onnx-mlir.
-// Implements main for onnx-mlir driver.
+//
+// A Main function for adora-onnx-opt, refer to onnx-mlir-opt.
+// Implements main for onnx-mlir-opt driver.
+//
 //===----------------------------------------------------------------------===//
 
-#include <filesystem>
-#include <regex>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/InitLLVM.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/ToolOutputFile.h>
+#include <mlir/Dialect/Bufferization/Pipelines/Passes.h>
+#include <mlir/Dialect/Bufferization/Transforms/Passes.h>
+#include <mlir/Dialect/MemRef/Transforms/Passes.h>
+#include <mlir/Dialect/Tosa/IR/TosaOps.h>
+#include <mlir/IR/AsmState.h>
+#include <mlir/IR/Dialect.h>
+#include <mlir/IR/MLIRContext.h>
+#include <mlir/IR/Threading.h>
+#include <mlir/InitAllPasses.h>
+#include <mlir/Interfaces/ViewLikeInterface.h>
+#include <mlir/Pass/Pass.h>
+#include <mlir/Pass/PassManager.h>
+#include <mlir/Support/FileUtilities.h>
+#include <mlir/Support/ToolUtilities.h>
+#include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
-#include "mlir/IR/AsmState.h"
-#include "mlir/IR/Threading.h"
-#include "mlir/Support/Timing.h"
+#include "RegisterPasses.hpp"
+#include "src/Accelerators/Accelerator.hpp"
+#include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
-#include "src/Compiler/CompilerUtils.hpp"
+#include "src/Compiler/CompilerPasses.hpp"
+#include "src/Compiler/DisposableGarbageCollector.hpp"
+#include "src/Dialect/Krnl/KrnlOps.hpp"
+#include "src/Dialect/ONNX/ONNXDialect.hpp"
+#include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "src/Version/Version.hpp"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "adora_onnx_opt"
 #include "ADORA/Dialect/ADORATensor/IR/ADORATensor.h"
 
+using namespace mlir;
 using namespace onnx_mlir;
 
-int main(int argc, char *argv[]) {
-  // Register MLIR command line options.
-  mlir::registerAsmPrinterCLOptions();
-  mlir::registerMLIRContextCLOptions();
-  mlir::registerPassManagerCLOptions();
+void scanAndSetOptLevel(int argc, char **argv) {
+  // In decreasing order, so we pick the last one if there are many.
+  for (int i = argc - 1; i > 0; --i) {
+    std::string currStr(argv[i]);
+    int num = -1;
+    if (currStr.find("--O") == 0)
+      num = atoi(&argv[i][3]); // Get the number starting 3 char down.
+    else if (currStr.find("-O") == 0)
+      num = atoi(&argv[i][2]); // Get the number starting 2 char down.
+    // Silently ignore out of bound opt levels.
+    if (num >= 0 && num <= 3) {
+      OptimizationLevel = static_cast<OptLevel>(num);
+      return;
+    }
+  }
+}
 
-  llvm::cl::SetVersionPrinter(getVersionPrinter);
+int main(int argc, char **argv) {
+  llvm::InitLLVM y(argc, argv);
 
-  // Remove unrelated options except common ones and the onnx-mlir options
-  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptions});
+  // Scan Opt Level manually now as it is needed to register passes
+  // before command line options are parsed.
+  scanAndSetOptLevel(argc, argv);
+
+  // Remove unrelated options except common ones and the onnx-mlir-opt options
+  removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptOptions});
+
+  DialectRegistry registry = registerDialects(maccel);
+  registry.insert<tosa::TosaDialect>();
+
+  bufferization::registerBufferizationPipelines();
+
+  // Registered passes can be expressed as command line flags, so they must
+  // must be registered before command line options are parsed.
+  registerPasses(OptimizationLevel);
+
+  // Register any command line options.
+  registerAsmPrinterCLOptions();
+  registerMLIRContextCLOptions();
+  registerPassManagerCLOptions();
+  registerDefaultTimingManagerCLOptions();
+
+  PassPipelineCLParser passPipeline("", "Compiler passes to run");
 
   if (!parseCustomEnvFlagsCommandLineOption(argc, argv, &llvm::errs()) ||
       !llvm::cl::ParseCommandLineOptions(argc, argv,
@@ -45,75 +102,64 @@ int main(int argc, char *argv[]) {
     llvm::errs() << "Failed to parse options\n";
     return 1;
   }
+
   initCompilerConfig();
 
-  // Timing manager reporting enabled via "--enable-timing" compiler flag
-  timingManager.setEnabled(enableTiming);
-  rootTimingScope = timingManager.getRootScope();
-  auto setupTiming = rootTimingScope.nest("[onnx-mlir] Loading Dialects");
-
-  // Special handling of outputBaseName to derive output filename.
-  // outputBaseName must specify a file, so ignore invalid values
-  // such as ".", "..", "./", "/.", etc.
-  bool b = false;
-  if (outputBaseName == "-" ||
-      (b = std::regex_match(
-           outputBaseName.substr(outputBaseName.find_last_of("/\\") + 1),
-           std::regex("[\\.]*$")))) {
-    if (b)
-      llvm::errs() << "Invalid -o option value " << outputBaseName
-                   << " ignored.\n";
-    outputBaseName =
-        (inputFilename == "-")
-            ? "stdin"
-            : inputFilename.substr(0, inputFilename.find_last_of("."));
-  }
-
-  // Create context after MLIRContextCLOptions are registered and parsed.
-  // The multi-threading in MLIRContext is enabled by default. It must be
-  // disabled to control the number of threads. To use single thread, simply
-  // disable it. To use a specific number of threads, disable it once and then
-  // set a new thread pool.
-  mlir::MLIRContext context;
-  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr = nullptr;
-  if (compilationNumThreads > 0)
-    context.disableMultithreading();
-  if (compilationNumThreads > 1) {
-    threadPoolPtr = std::make_unique<llvm::DefaultThreadPool>(
-        llvm::hardware_concurrency(compilationNumThreads));
-    context.setThreadPool(*threadPoolPtr);
-  }
-
-  if (!context.isMultithreadingEnabled()) {
-    assert(context.getNumThreads() == 1 && "1 thread if no multithreading");
-    LLVM_DEBUG(llvm::dbgs() << "multithreading is disabled\n");
-  }
-  loadDialects(context);
-
-  ////////////////////////////////////////
-  ///////// load adora tensor dialect
-  ////////////////////////////////////////
-  context.getOrLoadDialect<mlir::ADORA::ADORATensor::ADORATensorDialect>();
-
-  setupTiming.stop();
-  // Add the short inputFilename to the first compile phase printout so that we
-  // may better determine which compilation we are dealing with.
-  std::filesystem::path p(inputFilename);
-  std::string modelShortName = p.filename();
-  // Configure compile phase information.
-  SET_TOTAL_COMPILE_PHASE(emissionTarget);
-  std::string msg =
-      "Importing ONNX Model to MLIR Module from \"" + modelShortName + "\"";
-  showCompilePhase(msg);
-  auto inputFileTiming = rootTimingScope.nest("[onnx-mlir] " + msg);
-  mlir::OwningOpRef<mlir::ModuleOp> module;
-  std::string errorMessage;
-  int rc = processInputFile(inputFilename, context, module, &errorMessage);
-  if (rc != 0) {
-    if (!errorMessage.empty())
-      llvm::errs() << errorMessage << "\n";
+  // Set up the input file.
+  std::string error_message;
+  auto file = openInputFile(inputFilename, &error_message);
+  if (!error_message.empty()) {
+    llvm::errs() << "Failure to open file; " << error_message << "\n";
     return 1;
   }
-  inputFileTiming.stop();
-  return compileModule(module, context, outputBaseName, emissionTarget);
+
+  auto output = openOutputFile(outputBaseName, &error_message);
+  if (!error_message.empty()) {
+    llvm::errs() << "Failure to compile file; " << error_message << "\n";
+    return 1;
+  }
+
+  // Passes are configured with command line options so they must be configured
+  // after command line parsing but before any passes are run.
+  configurePasses();
+  for (auto *accel : accel::Accelerator::getAccelerators())
+    accel->configurePasses();
+
+  std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr = nullptr;
+  auto passManagerSetupFn = [&](PassManager &pm) {
+    MLIRContext *ctx = pm.getContext();
+    // Set number of threads in the MLIRContext
+    if (compilationNumThreads > 0)
+      ctx->disableMultithreading();
+    if (compilationNumThreads > 1) {
+      threadPoolPtr = std::make_unique<llvm::DefaultThreadPool>(
+          llvm::hardware_concurrency(compilationNumThreads));
+      ctx->setThreadPool(*threadPoolPtr);
+    }
+
+    // MlirOptMain constructed ctx with our registry so we just load all our
+    // already registered dialects.
+    ctx->loadAllAvailableDialects();
+    pm.addInstrumentation(std::make_unique<DisposableGarbageCollector>(ctx));
+    auto errorHandler = [ctx](const Twine &msg) {
+      emitError(UnknownLoc::get(ctx)) << msg;
+      return failure();
+    };
+    return passPipeline.addToPipeline(pm, errorHandler);
+  };
+
+  MlirOptMainConfig config;
+  config.setPassPipelineSetupFn(passManagerSetupFn)
+      .splitInputFile(split_input_file ? kDefaultSplitMarker : "")
+      .verifyDiagnostics(verify_diagnostics)
+      .verifyPasses(verify_passes)
+      .allowUnregisteredDialects(allowUnregisteredDialects)
+      .emitBytecode(false)
+      .useExplicitModule(false);
+
+  if (failed(MlirOptMain(output->os(), std::move(file), registry, config)))
+    return 1;
+
+  output->keep();
+  return 0;
 }
