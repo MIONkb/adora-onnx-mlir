@@ -12,6 +12,14 @@
 #define ONNX_MLIR_REGISTER_PASSES_H
 
 namespace onnx_mlir {
+namespace mlir {
+namespace ADORA {
+void registerADORAONNXPasses(int optLevel);
+}
+}
+}
+
+namespace onnx_mlir {
 
 // Makes select mlir and onnx-mlir passes available as command-line options.
 void registerPasses(int optLevel);

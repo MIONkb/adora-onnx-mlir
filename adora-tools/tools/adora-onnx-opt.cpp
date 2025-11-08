@@ -34,8 +34,8 @@
 #include <mlir/Support/ToolUtilities.h>
 #include <mlir/Tools/mlir-opt/MlirOptMain.h>
 
-#include "RegisterPasses.hpp"
-#include "src/Accelerators/Accelerator.hpp"
+// #include "RegisterPasses.hpp"
+// #include "src/Accelerators/Accelerator.hpp"
 #include "src/Compiler/CompilerDialects.hpp"
 #include "src/Compiler/CompilerOptions.hpp"
 #include "src/Compiler/CompilerPasses.hpp"
@@ -47,9 +47,22 @@
 
 #define DEBUG_TYPE "adora_onnx_opt"
 #include "ADORA/Dialect/ADORATensor/IR/ADORATensor.h"
+#include "ADORAONNX/Transforms/Passes.h"
+
 
 using namespace mlir;
 using namespace onnx_mlir;
+
+namespace mlir {
+
+#include "mlir/InitAllPasses.h"
+#include "mlir/Pass/PassRegistry.h"
+namespace ADORA {
+void registerADORAONNXPasses(int optLevel) {
+  ::mlir::ADORA::ADORATensor::registerOutlineONNXLayersPass();
+}
+}
+}
 
 void scanAndSetOptLevel(int argc, char **argv) {
   // In decreasing order, so we pick the last one if there are many.
@@ -85,7 +98,8 @@ int main(int argc, char **argv) {
 
   // Registered passes can be expressed as command line flags, so they must
   // must be registered before command line options are parsed.
-  registerPasses(OptimizationLevel);
+  // registerPasses(OptimizationLevel);
+  ::mlir::ADORA::registerADORAONNXPasses(OptimizationLevel);
 
   // Register any command line options.
   registerAsmPrinterCLOptions();

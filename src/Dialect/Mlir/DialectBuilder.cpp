@@ -608,6 +608,11 @@ Value MathBuilder::constant(Type type, double val) const {
         constant =
             b().create<arith::ConstantOp>(loc(), b().getF16FloatAttr(val));
       })
+      .Case<BFloat16Type>([&](Type) {
+        FloatAttr outAttr = FloatAttr::get(b().getBF16Type(), val);
+        constant =
+            b().create<arith::ConstantOp>(loc(), b().getBF16Type(), outAttr);
+      })
       .Case<Float32Type>([&](Type) {
         constant =
             b().create<arith::ConstantOp>(loc(), b().getF32FloatAttr(val));
