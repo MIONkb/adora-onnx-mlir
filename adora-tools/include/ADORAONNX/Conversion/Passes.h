@@ -15,8 +15,8 @@ namespace ADORA {
 namespace ADORATensor{
 
 /// Lower some operators in Linalg dialect to 
-#define GEN_PASS_DEF_OUTLINEONNXLAYERSPASS
-std::unique_ptr<OperationPass<ModuleOp>> createOutlineONNXLayersPass();
+#define GEN_PASS_DEF_CONVERTONNXLAYERSTOADORAPASS
+std::unique_ptr<OperationPass<ModuleOp>> createConvertONNXLayersToAdoraPass();
 // std::unique_ptr<OperationPass<ModuleOp>> createADORATensorOpCdfgGenPass();
 // std::unique_ptr<OperationPass<ModuleOp>> createADORAGemmOpStrategyDecisionPass();
 
@@ -27,7 +27,7 @@ std::unique_ptr<OperationPass<ModuleOp>> createOutlineONNXLayersPass();
 #define GEN_PASS_REGISTRATION
 #define GEN_PASS_DECL
 #define GEN_PASS_CLASSES
-#include "ADORAONNX/Transforms/Passes.h.inc"
+#include "ADORAONNX/Conversion/Passes.h.inc"
 
 } // namespace ADORATensor
 } // namespace ADORA

@@ -47,7 +47,7 @@
 
 #define DEBUG_TYPE "adora_onnx_opt"
 #include "ADORA/Dialect/ADORATensor/IR/ADORATensor.h"
-#include "ADORAONNX/Transforms/Passes.h"
+#include "ADORAONNX/Conversion/Passes.h"
 
 
 using namespace mlir;
@@ -59,7 +59,7 @@ namespace mlir {
 #include "mlir/Pass/PassRegistry.h"
 namespace ADORA {
 void registerADORAONNXPasses(int optLevel) {
-  ::mlir::ADORA::ADORATensor::registerOutlineONNXLayersPass();
+  ::mlir::ADORA::ADORATensor::registerConvertONNXLayersToAdoraPass();
 }
 }
 }
@@ -92,9 +92,9 @@ int main(int argc, char **argv) {
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptOptions});
 
   DialectRegistry registry = registerDialects(maccel);
-  registry.insert<tosa::TosaDialect>();
+  // registry.insert<tosa::TosaDialect>();
 
-  bufferization::registerBufferizationPipelines();
+  // bufferization::registerBufferizationPipelines();
 
   // Registered passes can be expressed as command line flags, so they must
   // must be registered before command line options are parsed.
@@ -136,8 +136,8 @@ int main(int argc, char **argv) {
   // Passes are configured with command line options so they must be configured
   // after command line parsing but before any passes are run.
   configurePasses();
-  for (auto *accel : accel::Accelerator::getAccelerators())
-    accel->configurePasses();
+  // for (auto *accel : accel::Accelerator::getAccelerators())
+  //   accel->configurePasses();
 
   std::unique_ptr<llvm::ThreadPoolInterface> threadPoolPtr = nullptr;
   auto passManagerSetupFn = [&](PassManager &pm) {

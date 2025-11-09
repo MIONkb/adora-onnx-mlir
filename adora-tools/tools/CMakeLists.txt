@@ -14,16 +14,16 @@ add_onnx_mlir_executable(adora-onnx-opt
   # OMAccelerator
   # OMVersion
   # MLIROpenMPToLLVM
-  MLIRAffineTransforms
-  MLIRLinalgTransforms
-  MLIRMemRefTransforms
-  MLIROpenMPToLLVM
+  # MLIRAffineTransforms
+  # MLIRLinalgTransforms
+  # MLIRMemRefTransforms
+  # MLIROpenMPToLLVM
   MLIROptLib
   # MLIRSCFToOpenMP
 
   # ADORATensor
   ADORATensorOps
-  ADORAONNXTransforms
+  ADORAONNXConversion
   )
   
 install(TARGETS adora-onnx-opt)

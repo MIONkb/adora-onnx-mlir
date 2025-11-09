@@ -11,17 +11,29 @@ include "mlir/IR/BuiltinDialect.td"
 // include "ADORA/Dialect/ADORA/IR/ADORABase.td"
 include "mlir/Pass/PassBase.td"
 
-def OutlineONNXLayersPass : Pass<"adora-outline-onnx-layers", "ModuleOp"> {
+def ConvertONNXLayersToAdoraPass : Pass<"convert-onnx-to-adora", "ModuleOp"> {
   let summary = "Outline ONNX ops to func.func for following adora optimization for CGRA";
   let description = [{"
     This pass converts specific Linalg operations, such as 
     matrix multiplication and 2D convolution, into systolic 
     array implementations. 
   "}];
-  let constructor = "createOutlineONNXLayersPass()";
+  let constructor = "createConvertONNXLayersToAdoraPass()";
   let dependentDialects = [
     "affine::AffineDialect", "linalg::LinalgDialect", "memref::MemRefDialect", "ADORA::ADORATensor::ADORATensorDialect"];
 }
+
+// def OutlineONNXLayersPass : Pass<"adora-outline-onnx-layers", "ModuleOp"> {
+//   let summary = "Outline ONNX ops to func.func for following adora optimization for CGRA";
+//   let description = [{"
+//     This pass converts specific Linalg operations, such as 
+//     matrix multiplication and 2D convolution, into systolic 
+//     array implementations. 
+//   "}];
+//   let constructor = "createOutlineONNXLayersPass()";
+//   let dependentDialects = [
+//     "affine::AffineDialect", "linalg::LinalgDialect", "memref::MemRefDialect", "ADORA::ADORATensor::ADORATensorDialect"];
+// }
 
 // def ADORAGemmOpStrategyDecisionPass
 //     : Pass<"adora-gemm-op-strategy-decision", "mlir::ModuleOp"> {
