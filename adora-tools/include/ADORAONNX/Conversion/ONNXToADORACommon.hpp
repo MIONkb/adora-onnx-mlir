@@ -57,6 +57,15 @@ namespace ADORATensor {
 //   - from onnx.StringType to krnl.StringType
 //===----------------------------------------------------------------------===//
 
+template <typename T> inline void setStringAttr(T op, const std::string key, const std::string val){
+  StringAttr attr = StringAttr::get(op.getOperation()->getContext(),val);
+  op.getOperation()->setAttr(key, attr);
+}
+inline void setStringAttr(mlir::Operation* op, const std::string key, const std::string val){
+  StringAttr attr = StringAttr::get(op->getContext(),val);
+  op->setAttr(key, attr);
+}
+
 class ADORATypeConverter : public mlir::TypeConverter {
 public:
   ADORATypeConverter();
