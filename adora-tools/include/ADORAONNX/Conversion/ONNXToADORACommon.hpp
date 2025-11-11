@@ -93,7 +93,24 @@ public:
   static int64_t getDefaultAllocAlignment(mlir::Type type);
 };
 
+
+
 }
 } // namespace
 } // namespace
+
+
+namespace onnx_mlir {
+/////////////////////////////////////////////////////
+/// From ONNX to Krnl
+/////////////////////////////////////////////////////
+// `Math` directory methods:
+void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
+    bool enableParallel);
+void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
+    bool enableTiling, bool enableSIMD, bool enableParallel);
+}
+
 #endif
