@@ -104,6 +104,40 @@ namespace onnx_mlir {
 /////////////////////////////////////////////////////
 /// From ONNX to Krnl
 /////////////////////////////////////////////////////
+// `Tensor` directory methods:
+void populateLoweringONNXArgMinMaxOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXDimOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// void populateLoweringONNXUnsqueezeOpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// void populateLoweringONNXUnsqueezeV11OpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+void populateLoweringONNXGatherElementsOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXGatherNDOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// void populateLoweringONNXPadConstantValuePadOpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// void populateLoweringONNXPadOpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// void populateLoweringONNXRangeOpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXReshapeOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *);
+// void populateLoweringONNXIdentityOpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+// void populateLoweringONNXConstantOfShapeOpPattern(
+//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConstantOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
+
 // `Math` directory methods:
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
