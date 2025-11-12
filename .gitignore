@@ -195,3 +195,7 @@ dmypy.json
 .gitpush.sh
 third_party/llvm-project-onnx/*
 third_party/protobuf/*
+[submodule "third_party/protobuf"]
+    path = third_party/protobuf
+    url = https://github.com/protocolbuffers/protobuf.git
+    ignore = all
