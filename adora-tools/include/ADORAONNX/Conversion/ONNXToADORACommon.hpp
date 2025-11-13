@@ -14,6 +14,7 @@
 
 #include <map>
 
+#include "mlir/Analysis/DataLayoutAnalysis.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -104,6 +105,18 @@ namespace onnx_mlir {
 /////////////////////////////////////////////////////
 /// From ONNX to Krnl
 /////////////////////////////////////////////////////
+
+// `NN` directory methods:
+// void populateLoweringONNXConvOpPattern(mlir::RewritePatternSet &,
+//     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel,
+//     std::string opsForCall);
+mlir::LogicalResult generateONNXLayerNormalizationOpONNXCode(
+    mlir::ConversionPatternRewriter &rewriter, mlir::Location loc,
+    mlir::ONNXLayerNormalizationOp lnOp);
+void populateLoweringONNXNormalizationOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
+    bool enableParallel);
+
 // `Tensor` directory methods:
 void populateLoweringONNXArgMinMaxOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
@@ -113,6 +126,8 @@ void populateLoweringONNXDimOpPattern(
 //     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 // void populateLoweringONNXUnsqueezeV11OpPattern(
 //     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXSliceOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 void populateLoweringONNXGatherOpPattern(mlir::RewritePatternSet &,
@@ -145,6 +160,24 @@ void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
     bool enableTiling, bool enableSIMD, bool enableParallel);
+
+
+/// adora defined populateLoweringONNXEntryPoint
+void populateLoweringONNXEntryPoint(mlir::RewritePatternSet &, mlir::MLIRContext *);
+
+
+
+/////////////////////////////////////////////////////
+/// From Krnl to affine
+/////////////////////////////////////////////////////
+namespace krnl {
+void populateKrnlToAffineConversion(mlir::TypeConverter &typeConverter,
+    mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx,
+    bool enableParallel = false);
+
+void lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(
+  mlir::func::FuncOp funcOp, const mlir::DataLayoutAnalysis& dataLayoutAnalysis);
+}
 }
 
 #endif

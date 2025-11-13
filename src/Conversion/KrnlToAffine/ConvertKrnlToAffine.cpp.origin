@@ -832,20 +832,49 @@ AffineTypeConverter::AffineTypeConverter() {
   });
 }
 
+//
+//===----------------------------------------------------------------------===//
+// ConvertKrnlToAffinePass
+//===----------------------------------------------------------------------===//
 
-void lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(::mlir::func::FuncOp funcOp, const DataLayoutAnalysis& dataLayoutAnalysis){
+/// This is a partial lowering to affine loops of the krnl dialect operations.
+/// At this stage the dialect will contain standard operations as well like
+/// add and multiply, this pass will leave these operations intact.
+struct ConvertKrnlToAffinePass
+    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToAffinePass);
+
+  ConvertKrnlToAffinePass() = default;
+  ConvertKrnlToAffinePass(const ConvertKrnlToAffinePass &pass)
+      : PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>>() {}
+  ConvertKrnlToAffinePass(bool parallelEnabled) {
+    this->parallelEnabled = parallelEnabled;
+  }
+
+  StringRef getArgument() const override { return "convert-krnl-to-affine"; }
+
+  StringRef getDescription() const override { return "Lower Krnl dialect."; }
+
+  void runOnOperation() final;
+
+  Option<bool> parallelEnabled{*this, "parallel-enabled",
+      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
+};
+
+void ConvertKrnlToAffinePass::runOnOperation() {
+  func::FuncOp funcOp = getOperation();
   if (funcOp.getBody().empty()) // external function: nothing to do
     return;
 
-  MLIRContext *ctx = funcOp.getOperation()->getContext();
+  MLIRContext *ctx = &getContext();
   OpBuilder builder(ctx);
 
-  // const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
+  const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
   LowerToLLVMOptions options(
-      /*&getContext()*/ctx, dataLayoutAnalysis.getAtOrAbove(funcOp));
+      &getContext(), dataLayoutAnalysis.getAtOrAbove(funcOp));
   // Request C wrapper emission via attribute.
   funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
-      UnitAttr::get(/*&getContext()*/ctx));
+      UnitAttr::get(&getContext()));
 
   // Move invariant instructions outside of the loops as many as possible. This
   // helps make loops perfectly nested, which facilitates transformations.
@@ -904,7 +933,7 @@ void lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(::mlir::func::FuncOp funcOp, con
 
   if (failed(interpretOperation(
           funcOp, builder, loopRefToOp, opsToErase, mover))) {
-    abort();
+    signalPassFailure();
     return;
   }
   // Lower `unrollOp` after all `iterateOps` have been lowered.
@@ -967,175 +996,6 @@ void lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(::mlir::func::FuncOp funcOp, con
 
   // Move loop body under appropriate newly created affine loops.
   mover.moveAll(loopRefToOp);
-}
-
-
-//
-//===----------------------------------------------------------------------===//
-// ConvertKrnlToAffinePass
-//===----------------------------------------------------------------------===//
-
-/// This is a partial lowering to affine loops of the krnl dialect operations.
-/// At this stage the dialect will contain standard operations as well like
-/// add and multiply, this pass will leave these operations intact.
-struct ConvertKrnlToAffinePass
-    : public PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>> {
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(ConvertKrnlToAffinePass);
-
-  ConvertKrnlToAffinePass() = default;
-  ConvertKrnlToAffinePass(const ConvertKrnlToAffinePass &pass)
-      : PassWrapper<ConvertKrnlToAffinePass, OperationPass<func::FuncOp>>() {}
-  ConvertKrnlToAffinePass(bool parallelEnabled) {
-    this->parallelEnabled = parallelEnabled;
-  }
-
-  StringRef getArgument() const override { return "convert-krnl-to-affine"; }
-
-  StringRef getDescription() const override { return "Lower Krnl dialect."; }
-
-  void runOnOperation() final;
-
-  Option<bool> parallelEnabled{*this, "parallel-enabled",
-      llvm::cl::desc("Enable parallelization"), llvm::cl::init(false)};
-};
-
-void ConvertKrnlToAffinePass::runOnOperation() {
-  func::FuncOp funcOp = getOperation();
-  if (funcOp.getBody().empty()) // external function: nothing to do
-    return;
-
-  MLIRContext *ctx = &getContext();
-  OpBuilder builder(ctx);
-  const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
-  lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(funcOp, dataLayoutAnalysis);
-
-  // const auto &dataLayoutAnalysis = getAnalysis<DataLayoutAnalysis>();
-  // LowerToLLVMOptions options(
-  //     &getContext(), dataLayoutAnalysis.getAtOrAbove(funcOp));
-  // // Request C wrapper emission via attribute.
-  // funcOp->setAttr(LLVM::LLVMDialect::getEmitCWrapperAttrName(),
-  //     UnitAttr::get(&getContext()));
-
-  // // Move invariant instructions outside of the loops as many as possible. This
-  // // helps make loops perfectly nested, which facilitates transformations.
-  // funcOp.walk([&](KrnlIterateOp loopOp) {
-  //   moveLoopInvariantCode(
-  //       mlir::cast<LoopLikeOpInterface>(loopOp.getOperation()));
-  // });
-
-  // // We use the end of the function body as a staging area for movable ops.
-  // builder.setInsertionPoint(&funcOp.getBody().front(),
-  //     funcOp.getBody().front().without_terminator().end());
-  // LoopBodyMover mover;
-  // funcOp.walk(
-  //     [&](KrnlIterateOp op) { markLoopBodyAsMovable(op, builder, mover); });
-
-  // // Interpret krnl dialect operations while looping recursively through
-  // // operations within the current function, note that erasing operations
-  // // while iterating is tricky because it can invalidate the iterator, so we
-  // // collect the operations to be erased in a small ptr set `opsToErase`, and
-  // // only erase after iteration completes.
-  // llvm::SmallDenseMap<Value, Operation *, 4> loopRefToOp;
-  // llvm::SmallPtrSet<Operation *, 4> opsToErase;
-
-  // // Lower `define_loops` first.
-  // // This is will make sure affine.for created for all the defined loops first.
-  // // Later when lower things like nested iteratorOp and blockOp, these
-  // // affine.for will be ready to use.
-  // funcOp->walk([&](KrnlDefineLoopsOp defineOp) {
-  //   // Make sure define loop lowered first, so the iterateOp which create
-  //   // affine.for can be lowered first.
-  //   // This is because the affine.for created by iterateOp will be used by
-  //   // the blockOp and permuteOp and the nested iterateOp.
-  //   LLVM_DEBUG(llvm::dbgs()
-  //              << DEBUG_TYPE << " interpret define op " << defineOp << "\n");
-  //   // Collect users of defineLoops operations that are iterate operations.
-  //   std::vector<KrnlIterateOp> iterateOps;
-  //   for (auto result : defineOp.getResults())
-  //     for (auto *user : result.getUsers())
-  //       if (auto iterateOp = mlir::dyn_cast_or_null<KrnlIterateOp>(user))
-  //         if (std::find(iterateOps.begin(), iterateOps.end(), iterateOp) ==
-  //             iterateOps.end())
-  //           iterateOps.push_back(mlir::dyn_cast<KrnlIterateOp>(user));
-
-  //   // Lower iterate operations and record the mapping between loop references
-  //   // and affine for loop operations in loopRefToOp map.
-  //   if (!iterateOps.empty()) {
-  //     for (auto opToLower : iterateOps) {
-  //       if (opsToErase.count(opToLower) == 0) {
-  //         lowerIterateOp(opToLower, builder, loopRefToOp);
-  //         opsToErase.insert(opToLower);
-  //       }
-  //     }
-  //   }
-  //   opsToErase.insert(defineOp);
-  // });
-
-  // if (failed(interpretOperation(
-  //         funcOp, builder, loopRefToOp, opsToErase, mover))) {
-  //   signalPassFailure();
-  //   return;
-  // }
-  // // Lower `unrollOp` after all `iterateOps` have been lowered.
-  // // This is necessary because `unrollOp` may reference a loop created by an
-  // // outer `iterateOp`, which will be updated after lowering an inner
-  // // `iterateOp`. If `unrollOp` is lowered before `iterateOp`, the loop may end
-  // // up in an incorrect state during unrolling.
-  // auto unrolls = funcOp.getOps<KrnlUnrollOp>();
-  // for (KrnlUnrollOp unrollOp : unrolls) {
-  //   LLVM_DEBUG(llvm::dbgs()
-  //              << DEBUG_TYPE << " interpret unroll op " << unrollOp << "\n");
-  //   // Unroll the affine for loop fully.
-  //   Value loopRef = unrollOp.getLoop();
-  //   auto loopToUnroll = llvm::cast<AffineForOp>(loopRefToOp[loopRef]);
-
-  //   mover.moveOne(loopRef, loopRefToOp);
-
-  //   // Interpret and remove 'krnl.get_induction_var' inside the unrolling loop
-  //   // if any. Otherwise, we lost the trace of the loop induction variables.
-  //   for (auto &region : loopToUnroll->getRegions())
-  //     for (auto &block : region.getBlocks()) {
-  //       auto &blockOps = block.getOperations();
-  //       for (auto itr = blockOps.begin(); itr != blockOps.end(); ++itr) {
-  //         Operation *genericOp = &(*itr);
-  //         if (auto getIVOp =
-  //                 mlir::dyn_cast_or_null<KrnlGetInductionVariableValueOp>(
-  //                     genericOp)) {
-  //           lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
-  //           opsToErase.insert(genericOp);
-  //         }
-  //       }
-  //     }
-  //   removeOps(opsToErase);
-
-  //   // Assert that there's no floating code within the loop to be unrolled.
-  //   loopToUnroll.walk([](KrnlMovableOp op) {
-  //     llvm_unreachable("Loop to unroll must not contain movable op.");
-  //   });
-  //   LogicalResult res = loopUnrollFull(loopToUnroll);
-  //   assert(succeeded(res) && "failed to unroll");
-  //   opsToErase.insert(unrollOp);
-  // }
-
-  // funcOp->walk([&](Operation *op) {
-  //   if (SpecializedKernelOpInterface kernelOp =
-  //           mlir::dyn_cast<SpecializedKernelOpInterface>(op)) {
-  //     OperandRange loopRefs = kernelOp.getLoopRefs();
-  //     for (auto loopRef : loopRefs)
-  //       opsToErase.insert(loopRefToOp[loopRef]);
-  //     kernelOp.getLoopRefs().clear();
-  //   }
-  //   if (auto getIVOp =
-  //           mlir::dyn_cast_or_null<KrnlGetInductionVariableValueOp>(op)) {
-  //     lowerGetInductionVariableValueOp(getIVOp, loopRefToOp);
-  //     opsToErase.insert(op);
-  //   }
-  // });
-  // removeOps(opsToErase);
-  // assert(opsToErase.empty());
-
-  // // Move loop body under appropriate newly created affine loops.
-  // mover.moveAll(loopRefToOp);
 
   ConversionTarget target(*ctx);
   // Legal/illegal ops.
@@ -1215,8 +1075,6 @@ void populateKrnlToAffineConversion(TypeConverter &typeConverter,
   krnl::populateLoweringKrnlPrefetchOpPattern(typeConverter, patterns, ctx);
   krnl::populateLoweringKrnlTerminatorOpPattern(typeConverter, patterns, ctx);
 }
-
-
 
 } // namespace krnl
 } // namespace onnx_mlir

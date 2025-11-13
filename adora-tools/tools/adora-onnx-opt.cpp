@@ -100,6 +100,7 @@ int main(int argc, char **argv) {
   // must be registered before command line options are parsed.
   // registerPasses(OptimizationLevel);
   ::mlir::ADORA::registerADORAONNXPasses(OptimizationLevel);
+  mlir::registerCanonicalizerPass();
 
   // Register any command line options.
   registerAsmPrinterCLOptions();

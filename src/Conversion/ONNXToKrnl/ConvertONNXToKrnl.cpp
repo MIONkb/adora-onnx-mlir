@@ -281,6 +281,7 @@ void populateONNXToKrnlConversionPattern(RewritePatternSet &patterns,
   populateLoweringONNXSequenceLengthOpPattern(patterns, typeConverter, ctx);
   // Entry point
   patterns.insert<ONNXEntryPointLowering>(ctx);
+
   // Additional
   populateLoweringONNXCustomOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXLayoutTransformOpPattern(patterns, typeConverter, ctx, enableParallel);
@@ -491,6 +492,10 @@ void configureOnnxToKrnlLoweringPass(bool reportOnParallel,
     // We have parallelism, enable specific parallel ops if available.
     OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.setRegexString(
         specificParallelOps);
+}
+
+void populateLoweringONNXEntryPoint(RewritePatternSet &patterns, MLIRContext *ctx) {
+  patterns.insert<ONNXEntryPointLowering>(ctx);
 }
 
 } // namespace onnx_mlir

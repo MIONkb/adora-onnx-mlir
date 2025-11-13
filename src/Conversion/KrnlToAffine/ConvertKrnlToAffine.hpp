@@ -89,7 +89,6 @@ void populateLoweringKrnlPrefetchOpPattern(mlir::TypeConverter &typeConverter,
 
 void populateLoweringKrnlTerminatorOpPattern(mlir::TypeConverter &typeConverter,
     mlir::RewritePatternSet &patterns, mlir::MLIRContext *ctx);
-
 } // namespace krnl
 } // namespace onnx_mlir
 #endif
