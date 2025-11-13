@@ -160,6 +160,8 @@ void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
     bool enableTiling, bool enableSIMD, bool enableParallel);
+void populateLoweringONNXSoftmaxOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
 
 
 /// adora defined populateLoweringONNXEntryPoint
