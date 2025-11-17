@@ -22,6 +22,7 @@ add_onnx_mlir_executable(adora-onnx-opt
   # MLIRSCFToOpenMP
 
   # ADORATensor
+  MLIRADORAOps
   ADORATensorOps
   ADORAONNXConversion
   )

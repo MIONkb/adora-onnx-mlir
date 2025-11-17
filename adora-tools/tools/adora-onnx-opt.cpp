@@ -46,6 +46,7 @@
 #include "src/Version/Version.hpp"
 
 #define DEBUG_TYPE "adora_onnx_opt"
+#include "ADORA/Dialect/ADORA/IR/ADORA.h"
 #include "ADORA/Dialect/ADORATensor/IR/ADORATensor.h"
 #include "ADORAONNX/Conversion/Passes.h"
 
@@ -58,9 +59,15 @@ namespace mlir {
 #include "mlir/InitAllPasses.h"
 #include "mlir/Pass/PassRegistry.h"
 namespace ADORA {
+void registerDialects(){
+
+}
+
+
 void registerADORAONNXPasses(int optLevel) {
   ::mlir::ADORA::ADORATensor::registerConvertONNXLayersToAdoraPass();
 }
+
 }
 }
 
@@ -92,7 +99,8 @@ int main(int argc, char **argv) {
   removeUnrelatedOptions({&OnnxMlirCommonOptions, &OnnxMlirOptOptions});
 
   DialectRegistry registry = registerDialects(maccel);
-  // registry.insert<tosa::TosaDialect>();
+  registry.insert<mlir::ADORA::ADORADialect>();
+  registry.insert<mlir::ADORA::ADORATensor::ADORATensorDialect>();
 
   // bufferization::registerBufferizationPipelines();
 

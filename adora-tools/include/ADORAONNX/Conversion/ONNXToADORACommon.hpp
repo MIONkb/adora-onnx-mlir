@@ -146,8 +146,8 @@ void populateLoweringONNXReshapeOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *);
 // void populateLoweringONNXIdentityOpPattern(
 //     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
-// void populateLoweringONNXConstantOfShapeOpPattern(
-//     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
+void populateLoweringONNXConstantOfShapeOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConstantOpPattern(
     mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
@@ -157,12 +157,18 @@ void populateLoweringONNXConcatOpPattern(mlir::RewritePatternSet &,
 void populateLoweringONNXElementwiseOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *, bool enableSIMD,
     bool enableParallel);
+void populateLoweringONNXHardmaxOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 void populateLoweringONNXMatMulOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, DimAnalysis *,
     bool enableTiling, bool enableSIMD, bool enableParallel);
+void populateLoweringONNXReductionOpPattern(mlir::RewritePatternSet &,
+    mlir::TypeConverter &, mlir::MLIRContext *, bool enableSIMD,
+    bool enableParallel);
 void populateLoweringONNXSoftmaxOpPattern(mlir::RewritePatternSet &,
     mlir::TypeConverter &, mlir::MLIRContext *, bool enableParallel);
-
+void populateLoweringONNXTopKOpPattern(
+    mlir::RewritePatternSet &, mlir::TypeConverter &, mlir::MLIRContext *);
 
 /// adora defined populateLoweringONNXEntryPoint
 void populateLoweringONNXEntryPoint(mlir::RewritePatternSet &, mlir::MLIRContext *);
