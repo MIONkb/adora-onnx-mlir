@@ -20,5 +20,5 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/..)
 include_directories(include)
 
 add_subdirectory(tools)
-add_subdirectory(lib)
+add_subdirectory(src)
 add_subdirectory(include)
