@@ -1,6 +1,6 @@
 [submodule "third_party/onnx"]
 	path = third_party/onnx
-	url = https://github.com/onnx/onnx.git
+	url = https://github.com/onnx/onnx/tree/b8baa8446686496da4cc8fda09f2b6fe65c2a02c
 [submodule "third_party/pybind11"]
 	path = third_party/pybind11
 	url = https://github.com/pybind/pybind11.git
