@@ -131,7 +131,14 @@ static std::pair<func::CallOp, func::FuncOp> ConvertONNXOpTtoFunc(
   mlir::Operation* newop = op.getOperation()->clone(mapping);
   entryBlock->push_back(newop);
 
+  // llvm::SmallVector<mlir::Value> returnValues;
+  // for (uint64_t i = 0; i < newop->getResults().size(); i++) {
+  //   if(!newop->getResult(i).getType().isa<mlir::NoneType>()){
+  //     returnValues.push_back(newop->getResult(i));
+  //   }
+  // }
   // entryBlock->push_back(builder.create<func::ReturnOp>(newop->getLoc(), dyn_cast<OpT>(newop).getResultTensors()));
+  // builder.create<func::ReturnOp>(newop->getLoc(), returnValues);
   builder.create<func::ReturnOp>(newop->getLoc(), newop->getResults());
   //// specific it as a kernel
   // ::mlir::ADORA::specifyOneOperationToADORAKernel(newop, FnName);
@@ -225,6 +232,9 @@ struct ONNXGenericOpToFuncCall : public mlir::OpConversionPattern<OP_TYPE> {
 
     resultTypes.reserve(results.size());
     for (uint64_t i = 0; i < results.size(); i++) {
+      // if(!results[i].getType().isa<mlir::NoneType>()){
+      //   resultTypes.push_back(results[i].getType());
+      // }
       resultTypes.push_back(results[i].getType());
     }
 
@@ -293,6 +303,40 @@ struct ONNXGenericOpToFuncCall : public mlir::OpConversionPattern<OP_TYPE> {
     rewriter.replaceOp(op, callop);
     // op->erase();
     // LLVM_DEBUG(llvm::errs() << "after replace:"; module.dump();); 
+    return success();
+  }
+};
+
+/// Lowering pattern: remove onnx.entry op and mark the target func as entry.
+struct EraseONNXEntryPointPattern
+    : public OpRewritePattern<ONNXEntryPointOp> {
+  using OpRewritePattern<ONNXEntryPointOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(
+      ONNXEntryPointOp op, PatternRewriter &rewriter) const override {
+    ModuleOp module = op.getOperation()->getParentOfType<ModuleOp>();
+    if (!module)
+      return failure();
+
+    SymbolRefAttr funcRefAttr = op->getAttrOfType<SymbolRefAttr>(
+        ONNXEntryPointOp::getEntryPointFuncAttrName());
+    if (!funcRefAttr)
+      return op.emitError("ONNXEntryPointOp missing entry function symbol");
+
+    StringRef entryPointName = funcRefAttr.getLeafReference().getValue();
+
+    Operation *entryPointOp = module.lookupSymbol(entryPointName);
+    if (!entryPointOp)
+      return op.emitError() << "entry point function '" << entryPointName
+                            << "' not found in module";
+
+    func::FuncOp entryPointFunc = mlir::cast<func::FuncOp>(entryPointOp);
+
+    entryPointFunc->setAttr(
+        "onnxEntryPoint", rewriter.getUnitAttr());
+
+    rewriter.eraseOp(op);
+    return success();
   }
 };
 
@@ -336,7 +380,8 @@ void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
   // Neural network
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
 
-  populateLoweringONNXEntryPoint(patterns, ctx);
+  // populateLoweringONNXEntryPoint(patterns, ctx);
+  patterns.insert<EraseONNXEntryPointPattern>(ctx);
 }
 
 struct ConvertONNXLayersToAdoraPass
