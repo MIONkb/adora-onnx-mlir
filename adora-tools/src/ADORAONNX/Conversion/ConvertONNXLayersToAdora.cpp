@@ -381,7 +381,7 @@ void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
   // Tensor
   populateLoweringONNXDimOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXReshapeOpPattern(patterns, typeConverter, ctx, dimAnalysis);
-  populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel);
+  // populateLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx, enableParallel); ## customized lower in adora
   populateLoweringONNXConstantOfShapeOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConstantOpPattern(patterns, typeConverter, ctx);
   populateLoweringONNXConcatOpPattern(patterns, typeConverter, ctx, enableParallel);
@@ -391,6 +391,7 @@ void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
   populateLoweringONNXNormalizationOpPattern(patterns, typeConverter, ctx, dimAnalysis, enableSIMD, enableParallel);
 
   // populateLoweringONNXEntryPoint(patterns, ctx);
+  populateAdoraLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
   patterns.insert<EraseONNXEntryPointPattern>(ctx);
 }
 
@@ -509,6 +510,12 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   ///////////////////////////////////////
   // 4th stage: unconverted krnl ops to affine
   ///////////////////////////////////////
+  // targetToaffine.addIllegalOp<KrnlMemcpyOp>();
+  // patterns.clear();
+  // // 然后 applyConversion
+  // if (failed(applyPartialConversion(module, targetToaffine,
+  //                                   std::move(patterns))))
+  //   signalPassFailure();
 }
 // func::FuncOp LinalgToSystolicGEMMPass::ConvertMatmulToSystolic(linalg::MatmulOp matmul){
 //   llvm::SetVector<mlir::Value> operands;

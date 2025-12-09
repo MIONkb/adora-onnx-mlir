@@ -173,8 +173,6 @@ void populateLoweringONNXTopKOpPattern(
 /// adora defined populateLoweringONNXEntryPoint
 void populateLoweringONNXEntryPoint(mlir::RewritePatternSet &, mlir::MLIRContext *);
 
-
-
 /////////////////////////////////////////////////////
 /// From Krnl to affine
 /////////////////////////////////////////////////////
@@ -187,5 +185,16 @@ void lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(
   mlir::func::FuncOp funcOp, const mlir::DataLayoutAnalysis& dataLayoutAnalysis);
 }
 }
+
+
+namespace mlir {
+namespace ADORA {
+namespace ADORATensor {
+void populateAdoraLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &patterns,
+    mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
+}
+} // namespace
+} // namespace
+
 
 #endif
