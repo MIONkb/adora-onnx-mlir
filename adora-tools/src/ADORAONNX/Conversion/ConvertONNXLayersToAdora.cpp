@@ -503,6 +503,7 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
 
   patterns.clear();
   krnl::populateKrnlToAffineConversion(typeConverter, patterns, &getContext());
+  populateAdoraLoweringKrnlGlobalToMemRefGlobal(patterns, &getContext());
   if (failed(applyPartialConversion(module, targetToaffine, std::move(patterns)))) {
     signalPassFailure();
   }

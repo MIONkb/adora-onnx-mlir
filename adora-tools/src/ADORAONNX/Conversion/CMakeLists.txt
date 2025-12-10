@@ -5,7 +5,9 @@ set(SPDLOG_NO_EXCEPTIONS ON)
 add_mlir_dialect_library(ADORAONNXConversion
   ConvertONNXLayersToAdora.cpp
   ONNXToADORACommon.cpp
-  AdoraONNXTransposeLowering.cpp
+
+  OpConversion/AdoraONNXTransposeLowering.cpp
+  OpConversion/AdoraKrnlGlobalOpLowering.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${CMAKE_BINARY_DIR}/adora-tools/include 
