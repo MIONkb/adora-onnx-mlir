@@ -426,6 +426,12 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   RewritePatternSet patterns(&getContext());
   ADORATypeConverter typeConverter;
   ///////////////////////////////////////
+  // 0th stage: fuse some onnx operator to adora tensor operator
+  ///////////////////////////////////////
+  FuseONNXOperatorToAdoraTensor(&getContext());
+  patterns.clear();
+
+  ///////////////////////////////////////
   // 1st stage: outline specific operators
   ///////////////////////////////////////
   markElementWiseOpDynamicIllegal(target); /// For elementwize op, outline it when tensor is big
