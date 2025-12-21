@@ -8,6 +8,7 @@ add_mlir_dialect_library(ADORAONNXConversion
 
   OpConversion/AdoraONNXTransposeLowering.cpp
   OpConversion/AdoraKrnlGlobalOpLowering.cpp
+  OpConversion/AdoraONNXGEMMOpConversion.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${CMAKE_BINARY_DIR}/adora-tools/include 

@@ -428,7 +428,7 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   ///////////////////////////////////////
   // 0th stage: fuse some onnx operator to adora tensor operator
   ///////////////////////////////////////
-  FuseONNXOperatorToAdoraTensor(&getContext());
+  FuseONNXOperatorToAdoraTensor(module);
   patterns.clear();
 
   ///////////////////////////////////////

@@ -94,8 +94,6 @@ public:
   static int64_t getDefaultAllocAlignment(mlir::Type type);
 };
 
-
-
 }
 } // namespace
 } // namespace
@@ -193,6 +191,8 @@ namespace ADORATensor {
 void populateAdoraLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
 void populateAdoraLoweringKrnlGlobalToMemRefGlobal(RewritePatternSet &patterns, MLIRContext *ctx) ;
+
+void FuseONNXOperatorToAdoraTensor(ModuleOp module);
 }
 } // namespace
 } // namespace
