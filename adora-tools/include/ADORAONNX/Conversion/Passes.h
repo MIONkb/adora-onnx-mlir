@@ -9,6 +9,7 @@
 #define ADORAONNX_TRANSORM_PASSES_H_
 
 #include "ADORA/Dialect/ADORATensor/IR/ADORATensor.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Pass/Pass.h"
 namespace mlir {
 namespace ADORA {

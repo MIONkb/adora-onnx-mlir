@@ -6,6 +6,7 @@ add_mlir_dialect_library(ADORAONNXConversion
   ConvertONNXLayersToAdora.cpp
   ONNXToADORACommon.cpp
 
+  OpConversion/Outline.cpp
   OpConversion/AdoraONNXTransposeLowering.cpp
   OpConversion/AdoraKrnlGlobalOpLowering.cpp
   OpConversion/AdoraONNXGEMMOpConversion.cpp

@@ -188,11 +188,33 @@ void lowerKrnlIteratesOpDefineLoopOpAndUnrollOp(
 namespace mlir {
 namespace ADORA {
 namespace ADORATensor {
+void populateONNXOutlinePattern(RewritePatternSet &patterns, 
+  MLIRContext *ctx, ADORATypeConverter typeConverter) ;
 void populateAdoraLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
 void populateAdoraLoweringKrnlGlobalToMemRefGlobal(RewritePatternSet &patterns, MLIRContext *ctx) ;
 
 void FuseONNXOperatorToAdoraTensor(ModuleOp module);
+
+
+#define kTensorSizeThreshold 32
+inline bool isLargeTensor(mlir::Value tensor) {
+  auto type = tensor.getType();
+  if (auto shaped = type.dyn_cast<mlir::ShapedType>()) {
+    if (!shaped.hasStaticShape())
+      return true; 
+
+    int64_t elems = 1;
+    for (auto dim : shaped.getShape())
+      elems *= dim;
+
+    return elems >= kTensorSizeThreshold;
+  }
+
+  return false;
+}
+
+
 }
 } // namespace
 } // namespace
