@@ -106,6 +106,54 @@ struct EraseONNXEntryPointPattern
 };
 
 
+/// Generic type-only conversion pattern for ADORATensor ops.
+/// This pattern rewrites ADORATensor operations by converting
+/// their tensor-typed results into target-legal types (e.g., memref),
+/// while preserving the original operation semantics.
+///
+/// The pattern:
+///   1) Converts all result types using the provided TypeConverter.
+///   2) Recreates the same ADORATensor op with converted result types
+///      and already-converted operands.
+///   3) Moves regions if the op contains any (for future extensibility).
+///   4) Replaces the original op with the new one.
+template <typename ADORATENSOROP_TYPE>
+struct ADORATensorTypeConversion
+    : OpConversionPattern<ADORATENSOROP_TYPE> {
+
+  // using OpConversionPattern<ADORATENSOROP_TYPE>::OpConversionPattern;
+
+  ADORATensorTypeConversion(TypeConverter &typeConverter, MLIRContext *ctx)
+      : OpConversionPattern<ADORATENSOROP_TYPE>(typeConverter, ctx) {};
+
+  LogicalResult matchAndRewrite(
+      ADORATENSOROP_TYPE op,
+      typename ADORATENSOROP_TYPE::Adaptor adaptor,
+      ConversionPatternRewriter &rewriter) const override {
+
+    // 1. Convert all result types (support multi-result)
+    SmallVector<Type, 4> newResultTypes;
+    if (failed(this->getTypeConverter()->convertTypes(
+            op->getResultTypes(), newResultTypes)))
+      return failure();
+
+    // 2. Clone op with new types + converted operands
+    auto newOp = rewriter.create<ADORATENSOROP_TYPE>(
+        op.getLoc(),
+        newResultTypes,
+        adaptor.getOperands(),
+        op->getAttrs());
+
+    // // 3. Move regions if any (future-proof)
+    // rewriter.inlineRegionBefore(
+    //     op->getRegions(), newOp->getRegions(),
+    //     newOp->getRegions().begin());
+
+    // 4. Replace
+    rewriter.replaceOp(op, newOp->getResults());
+    return success();
+  }
+};
 
 void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
     TypeConverter &typeConverter, MLIRContext *ctx, DimAnalysis *dimAnalysis,
@@ -138,6 +186,10 @@ void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
   // populateLoweringONNXEntryPoint(patterns, ctx);
   populateAdoraLoweringONNXTransposeOpPattern(patterns, typeConverter, ctx);
   patterns.insert<EraseONNXEntryPointPattern>(ctx);
+
+  // adora tensor op type conversion
+  patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::GemmOp>>(typeConverter, ctx);
+  patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::MatMulOp>>(typeConverter, ctx);
 }
 
 struct ConvertONNXLayersToAdoraPass
@@ -162,7 +214,8 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   ConversionTarget target(getContext());
 
   target.addLegalDialect<
-      ADORA::ADORADialect, ADORA::ADORATensor::ADORATensorDialect, 
+      ADORA::ADORADialect, 
+      // ADORA::ADORATensor::ADORATensorDialect, 
       KrnlDialect, affine::AffineDialect, tensor::TensorDialect,
       arith::ArithDialect, func::FuncDialect, linalg::LinalgDialect,
       math::MathDialect, vector::VectorDialect, memref::MemRefDialect,
@@ -181,9 +234,16 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   ///////////////////////////////////////
   markElementWiseOpDynamicIllegal(target); /// For elementwize op, outline it when tensor is big
   populateONNXOutlinePattern(patterns, &getContext(), typeConverter);
+  // if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
+  //   signalPassFailure();
+  // }
+
+  // patterns.clear();
+  populateADORATensorOutlinePattern(patterns, &getContext(), typeConverter);
   if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
     signalPassFailure();
   }
+
 
   LLVM_DEBUG(llvm::errs() << "[DEBUG]after outlining:\n" ; module.dump(););
   patterns.clear();
@@ -214,6 +274,18 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   targetTokrnl.addDynamicallyLegalOp<mlir::func::ReturnOp>([&](Operation *op) {
     return llvm::none_of(op->getOperandTypes(),
         [](Type type) { return mlir::isa<TensorType>(type); });
+  });
+
+  targetTokrnl.addDynamicallyLegalOp<ADORA::ADORATensor::GemmOp>([&](auto op) {
+    auto hasTensor = llvm::any_of(op->getOperandTypes(), [](Type t){ return t.isa<TensorType>(); }) ||
+                     llvm::any_of(op->getResultTypes(), [](Type t){ return t.isa<TensorType>(); });
+    return !hasTensor;
+  });
+
+  targetTokrnl.addDynamicallyLegalOp<ADORA::ADORATensor::MatMulOp>([&](auto op) {
+    auto hasTensor = llvm::any_of(op->getOperandTypes(), [](Type t){ return t.isa<TensorType>(); }) ||
+                     llvm::any_of(op->getResultTypes(), [](Type t){ return t.isa<TensorType>(); });
+    return !hasTensor;
   });
 
   // Define patterns.

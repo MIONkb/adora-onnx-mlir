@@ -35,10 +35,6 @@ struct AdoraONNXTransposeOpLowerToAffine : public OpConversionPattern<ONNXTransp
   AdoraONNXTransposeOpLowerToAffine(
       TypeConverter &typeConverter, MLIRContext *ctx)
       : OpConversionPattern(typeConverter, ctx) {
-    // this->enableParallel =
-    //     enableParallel &&
-    //     OnnxToKrnlLoweringConfiguration::enableSpecificParallelOps.isEnabled(
-    //         ONNXTransposeOp::getOperationName());
   }
 
   LogicalResult matchAndRewrite(ONNXTransposeOp transposeOp,

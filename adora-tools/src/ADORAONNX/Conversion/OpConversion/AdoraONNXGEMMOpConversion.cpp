@@ -203,9 +203,6 @@ static LogicalResult lowerMatMulLikeToAdoraGemm(Value A, Value B,
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// Public entry point
-//===----------------------------------------------------------------------===//
 
 /// Top-level driver that performs local fusion/lowering within a ModuleOp.
 ///

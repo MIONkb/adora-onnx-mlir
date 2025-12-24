@@ -116,8 +116,6 @@ int64_t ADORATypeConverter::getDefaultAllocAlignment(Type type) {
   return alignment;
 }
 
-
-
 }
 } // namespace
 } // namespace

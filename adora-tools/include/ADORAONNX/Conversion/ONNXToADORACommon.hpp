@@ -189,7 +189,9 @@ namespace mlir {
 namespace ADORA {
 namespace ADORATensor {
 void populateONNXOutlinePattern(RewritePatternSet &patterns, 
-  MLIRContext *ctx, ADORATypeConverter typeConverter) ;
+  MLIRContext *ctx, ADORATypeConverter &typeConverter);
+void populateADORATensorOutlinePattern(RewritePatternSet &patterns, 
+  MLIRContext *ctx, ADORATypeConverter &typeConverter);
 void populateAdoraLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &patterns,
     mlir::TypeConverter &typeConverter, mlir::MLIRContext *ctx);
 void populateAdoraLoweringKrnlGlobalToMemRefGlobal(RewritePatternSet &patterns, MLIRContext *ctx) ;

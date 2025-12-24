@@ -292,7 +292,7 @@ ConvertADORATensorOpTtoFunc(OpT op,
                             StringRef fnName) {
   Location loc = op.getLoc();
   MLIRContext *ctx = op.getContext();
-  ModuleOp module = op->getParentOfType<ModuleOp>();
+  ModuleOp module = op->template getParentOfType<ModuleOp>();
 
   // Build the callee in module scope.
   OpBuilder moduleBuilder(ctx);
@@ -348,7 +348,7 @@ struct ADORATensorGenericOpToFuncCall : public OpConversionPattern<OP_TYPE> {
                                 ConversionPatternRewriter &rewriter) const override {
     Operation *rawOp = op.getOperation();
     Location loc = rawOp->getLoc();
-    ModuleOp module = rawOp->getParentOfType<ModuleOp>();
+    ModuleOp module = rawOp->template getParentOfType<ModuleOp>();
     SymbolTable symTab(module);
 
     ValueRange operands = adaptor.getOperands();
@@ -381,7 +381,7 @@ struct ADORATensorGenericOpToFuncCall : public OpConversionPattern<OP_TYPE> {
         if (!f->hasAttrOfType<UnitAttr>("adora_kernel"))
           continue;
 
-        if (!f.getSymName().startswith(baseLayerName))
+        if (!f.getSymName().starts_with(baseLayerName))
           continue;
 
         if (f.getFunctionType().getInputs() == ArrayRef(inputTypes) &&
@@ -440,7 +440,7 @@ struct ADORATensorGenericOpToFuncCall : public OpConversionPattern<OP_TYPE> {
 };
 
 void populateONNXOutlinePattern(RewritePatternSet &patterns, 
-  MLIRContext *ctx, ADORATypeConverter typeConverter) 
+  MLIRContext *ctx, ADORATypeConverter &typeConverter) 
 { 
   patterns.insert<
     // ONNXGenericOpToFuncCall<ONNXMatMulOp, onnx_mlir::ONNXMatMulOpShapeHelper>,
@@ -455,7 +455,11 @@ void populateONNXOutlinePattern(RewritePatternSet &patterns,
     ONNXGenericOpToFuncCall<ONNXRMSLayerNormalizationOp>,
     ONNXGenericOpToFuncCall<ONNXLayerNormalizationOp>
   >(ctx);
+}
 
+void populateADORATensorOutlinePattern(RewritePatternSet &patterns, 
+  MLIRContext *ctx, ADORATypeConverter &typeConverter) 
+{ 
   patterns.insert<
       ADORATensorGenericOpToFuncCall<mlir::ADORA::ADORATensor::GemmOp>,
       ADORATensorGenericOpToFuncCall<mlir::ADORA::ADORATensor::MatMulOp>
