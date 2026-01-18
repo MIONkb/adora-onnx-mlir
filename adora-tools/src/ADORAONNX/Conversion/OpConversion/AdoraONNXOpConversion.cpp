@@ -43,9 +43,7 @@ namespace ADORATensor {
 //===----------------------------------------------------------------------===//
 
 /// Returns true if the value is a NoneType (used for optional inputs in ONNX).
-static bool isNoneValue(Value v) {
-  return v.getType().isa<NoneType>();
-}
+static bool isNoneValue(Value v) { return v.getType().isa<NoneType>(); }
 
 /// Returns true if `v` has a RankedTensorType.
 static bool isRankedTensor(Value v) {
@@ -447,12 +445,16 @@ static Value createRankReducedSubview(OpBuilder &b, Location loc, Value base,
     ArrayRef<int64_t> loopDims, ArrayRef<Value> loopIvs) {
   auto baseTy = base.getType().cast<MemRefType>();
   int64_t rank = baseTy.getRank();
+  assert(rank >= 2 && "createRankReducedSubview requires rank >= 2");
   assert(loopDims.size() == loopIvs.size());
 
   // Map ivs to dims
   SmallVector<Value, 4> ivForDim(rank, Value());
-  for (size_t i = 0; i < loopDims.size(); ++i)
-    ivForDim[loopDims[i]] = loopIvs[i];
+  for (size_t i = 0; i < loopDims.size(); ++i) {
+    if (loopDims[i] < rank) {
+      ivForDim[loopDims[i]] = loopIvs[i];
+    }
+  }
 
   SmallVector<OpFoldResult, 4> offsets, sizes, strides;
   offsets.reserve(rank);
@@ -539,18 +541,33 @@ static void lowerBatchedADORAGemmOp(mlir::ADORA::ADORATensor::GemmOp op) {
 
   SmallVector<Value, 4> loopIvs;
   auto emitGemmSlice = [&](OpBuilder &nestedBuilder) {
-    Value aSubview = createRankReducedSubview(
+    // A is always a high-rank tensor, so it must be sliced
+    Value lhs = createRankReducedSubview(
         nestedBuilder, loc, op.getA(), loopDims, loopIvs);
-    Value bSubview = createRankReducedSubview(
-        nestedBuilder, loc, op.getB(), loopDims, loopIvs);
-    Value cSubview = createRankReducedSubview(
-        nestedBuilder, loc, op.getC(), loopDims, loopIvs);
-    Value outSubview = createRankReducedSubview(
+
+    // B (weights) can be rank-2 (no batch) or rank-3 (with batch)
+    // Only slice B when its rank is greater than 2; otherwise use it directly
+    Value rhs = op.getB();
+    if (bType.getRank() > 2) {
+      rhs = createRankReducedSubview(
+          nestedBuilder, loc, op.getB(), loopDims, loopIvs);
+    }
+
+    // C (bias) is similar: it can be rank-1 or rank-2 (no batch), or
+    // higher-rank
+    Value bias = op.getC();
+    if (cType.getRank() > 2) {
+      bias = createRankReducedSubview(
+          nestedBuilder, loc, op.getC(), loopDims, loopIvs);
+    }
+
+    // Output is always high-rank, so it must be sliced
+    Value output = createRankReducedSubview(
         nestedBuilder, loc, outAlloc, loopDims, loopIvs);
 
     auto gemm2d = nestedBuilder.create<mlir::ADORA::ADORATensor::GemmOp>(
-        loc, outSubview.getType(), aSubview, bSubview, cSubview);
-    nestedBuilder.create<memref::CopyOp>(loc, gemm2d.getO(), outSubview);
+        loc, output.getType(), lhs, rhs, bias);
+    nestedBuilder.create<memref::CopyOp>(loc, gemm2d.getO(), output);
   };
 
   std::function<void(size_t, OpBuilder &)> buildLoopNest =
