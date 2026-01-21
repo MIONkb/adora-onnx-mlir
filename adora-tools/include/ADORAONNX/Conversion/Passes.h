@@ -19,7 +19,7 @@ namespace ADORATensor{
 #define GEN_PASS_DEF_CONVERTONNXLAYERSTOADORAPASS
 std::unique_ptr<OperationPass<ModuleOp>> createConvertONNXLayersToAdoraPass();
 // std::unique_ptr<OperationPass<ModuleOp>> createADORATensorOpCdfgGenPass();
-// std::unique_ptr<OperationPass<ModuleOp>> createADORAGemmOpStrategyDecisionPass();
+// std::unique_ptr<OperationPass<ModuleOp>> createADORAOpStrategyDecisionPass();
 
 //===----------------------------------------------------------------------===//
 // Registration
