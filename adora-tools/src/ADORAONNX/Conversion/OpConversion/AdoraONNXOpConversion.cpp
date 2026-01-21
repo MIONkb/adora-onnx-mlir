@@ -59,6 +59,33 @@ static bool sameElementType(Type a, Type b) {
   return ta.getElementType() == tb.getElementType();
 }
 
+// Helper: Convert a single IntegerAttr (likely si64) to a signless i64
+// IntegerAttr
+static IntegerAttr toSignlessI64Attr(IntegerAttr attr, OpBuilder &builder) {
+  if (!attr)
+    return nullptr;
+  int64_t val = attr.getValue().getSExtValue();
+  return builder.getI64IntegerAttr(val);
+}
+
+// Helper: Convert an ArrayAttr (containing si64) to an ArrayAttr of signless
+// i64
+static ArrayAttr toSignlessI64ArrayAttr(ArrayAttr attr, OpBuilder &builder) {
+  if (!attr)
+    return nullptr;
+
+  SmallVector<Attribute, 4> newValues;
+  for (auto val : attr) {
+    if (auto intAttr = val.dyn_cast<IntegerAttr>()) {
+      int64_t intVal = intAttr.getValue().getSExtValue();
+      newValues.push_back(builder.getI64IntegerAttr(intVal));
+    } else {
+      newValues.push_back(val);
+    }
+  }
+  return builder.getArrayAttr(newValues);
+}
+
 /// A conservative broadcast compatibility check.
 ///
 /// - For fully static shapes: allow NumPy/ONNX-style trailing-dimension
@@ -159,46 +186,6 @@ static LogicalResult lowerONNXGemmToAdoraGemm(
 }
 
 //===----------------------------------------------------------------------===//
-// Lowering: onnx.Conv -> adora.Conv
-//===----------------------------------------------------------------------===//
-
-static LogicalResult lowerONNXConvToAdoraConv(
-    mlir::ONNXConvOp convOp, OpBuilder &builder) {
-  Location loc = convOp.getLoc();
-
-  Value X = convOp.getX();
-  Value W = convOp.getW();
-  Value B = convOp.getB();
-
-  // Handle optional bias: ONNX represents missing bias as NoneType.
-  Value adoraBias = nullptr;
-  if (!B.getType().isa<NoneType>()) {
-    adoraBias = B;
-  }
-
-  Type outTy = convOp.getResult().getType();
-
-  auto autoPad = convOp.getAutoPadAttr();
-  auto dilations = convOp.getDilationsAttr();
-  auto group = convOp.getGroupAttr();
-  auto kernelShape = convOp.getKernelShapeAttr();
-  auto pads = convOp.getPadsAttr();
-  auto strides = convOp.getStridesAttr();
-
-  builder.setInsertionPoint(convOp);
-
-  auto newOp = builder.create<mlir::ADORA::ADORATensor::ConvOp>(loc, outTy, X,
-      W,
-      adoraBias, // nullptr is automatically treated as Optional by TableGen.
-      autoPad, dilations, group, kernelShape, pads, strides);
-
-  convOp.getResult().replaceAllUsesWith(newOp.getY());
-  convOp.erase();
-
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // Lowering: onnx.MatMul (+ optional onnx.Add) -> ADORATensor.Gemm
 //===----------------------------------------------------------------------===//
 
@@ -285,11 +272,14 @@ static LogicalResult lowerConvLikeToAdoraConv(mlir::ONNXConvOp convOp,
 
   // Extract attributes to pass through to Adora IR
   auto autoPad = convOp.getAutoPadAttr();
-  auto dilations = convOp.getDilationsAttr();
-  auto group = convOp.getGroupAttr();
-  auto kernelShape = convOp.getKernelShapeAttr();
-  auto pads = convOp.getPadsAttr();
-  auto strides = convOp.getStridesAttr();
+  // si64 array -> i64 array
+  auto dilations = toSignlessI64ArrayAttr(convOp.getDilationsAttr(), builder);
+  auto kernelShape =
+      toSignlessI64ArrayAttr(convOp.getKernelShapeAttr(), builder);
+  auto pads = toSignlessI64ArrayAttr(convOp.getPadsAttr(), builder);
+  auto strides = toSignlessI64ArrayAttr(convOp.getStridesAttr(), builder);
+  // si64 -> i64
+  auto group = toSignlessI64Attr(convOp.getGroupAttr(), builder);
 
   builder.setInsertionPoint(opToEraseAfter ? opToEraseAfter : convOp);
 
