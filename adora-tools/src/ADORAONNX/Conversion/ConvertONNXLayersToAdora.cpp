@@ -193,6 +193,8 @@ void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
   // adora tensor op type conversion
   patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::GemmOp>>(typeConverter, ctx);
   patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::MatMulOp>>(typeConverter, ctx);
+
+  patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::ConvOp>>(typeConverter, ctx);
 }
 
 struct ConvertONNXLayersToAdoraPass
@@ -286,6 +288,12 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
   });
 
   targetTokrnl.addDynamicallyLegalOp<ADORA::ADORATensor::MatMulOp>([&](auto op) {
+    auto hasTensor = llvm::any_of(op->getOperandTypes(), [](Type t){ return t.isa<TensorType>(); }) ||
+                     llvm::any_of(op->getResultTypes(), [](Type t){ return t.isa<TensorType>(); });
+    return !hasTensor;
+  });
+
+  targetTokrnl.addDynamicallyLegalOp<ADORA::ADORATensor::ConvOp>([&](auto op) {
     auto hasTensor = llvm::any_of(op->getOperandTypes(), [](Type t){ return t.isa<TensorType>(); }) ||
                      llvm::any_of(op->getResultTypes(), [](Type t){ return t.isa<TensorType>(); });
     return !hasTensor;
