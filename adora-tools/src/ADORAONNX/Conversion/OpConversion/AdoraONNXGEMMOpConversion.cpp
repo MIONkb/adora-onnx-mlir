@@ -30,6 +30,8 @@
 #include "src/Dialect/ONNX/ONNXOps.hpp"
 #include "ADORA/Dialect/ADORATensor/IR/ADORATensor.h"
 
+#define DEBUG_TYPE "onnx-to-adora"
+
 using namespace mlir;
 using namespace onnx_mlir;
 namespace mlir {
@@ -307,6 +309,167 @@ void FuseONNXOperatorToAdoraTensor(ModuleOp module) {
     (void)lowerONNXGemmToAdoraGemm(g, builder);
   }
 }
+
+
+static Value getMemRefDimValue(OpBuilder &builder, Location loc, Value base,
+                               int64_t dim) {
+  auto baseType = base.getType().cast<MemRefType>();
+  if (!baseType.isDynamicDim(dim))
+    return builder.create<arith::ConstantIndexOp>(loc, baseType.getDimSize(dim));
+  return builder.create<memref::DimOp>(loc, base, dim);
+}
+
+static Value createRankReducedSubview(OpBuilder &b, Location loc,
+                                      Value base,
+                                      ArrayRef<int64_t> loopDims,
+                                      ArrayRef<Value> loopIvs) {
+  auto baseTy = base.getType().cast<MemRefType>();
+  int64_t rank = baseTy.getRank();
+  assert(loopDims.size() == loopIvs.size());
+
+  // Map ivs to dims
+  SmallVector<Value, 4> ivForDim(rank, Value());
+  for (size_t i = 0; i < loopDims.size(); ++i)
+    ivForDim[loopDims[i]] = loopIvs[i];
+
+  SmallVector<OpFoldResult, 4> offsets, sizes, strides;
+  offsets.reserve(rank);
+  sizes.reserve(rank);
+  strides.reserve(rank);
+
+  auto idx0 = b.getIndexAttr(0);
+  auto idx1 = b.getIndexAttr(1);
+
+  for (int64_t dim = 0; dim < rank; ++dim) {
+    strides.push_back(idx1);
+
+    if (dim < rank - 2) {
+      // reduce-away dims: offset = iv or 0, size = 1
+      offsets.push_back(ivForDim[dim] ? OpFoldResult(ivForDim[dim]) : OpFoldResult(idx0));
+      sizes.push_back(idx1);
+    } else {
+      // keep last 2 dims: offset = 0, size = full dim (dynamic or static)
+      offsets.push_back(idx0);
+      if (baseTy.isDynamicDim(dim))
+        sizes.push_back(getMemRefDimValue(b, loc, base, dim));   // Value (index)
+      else
+        sizes.push_back(b.getIndexAttr(baseTy.getDimSize(dim))); // Attr
+    }
+  }
+
+  // resultShape: dynamic kept dims become kDynamic (-1)
+  SmallVector<int64_t, 2> resultShape = {
+      baseTy.isDynamicDim(rank - 2) ? ShapedType::kDynamic : baseTy.getDimSize(rank - 2),
+      baseTy.isDynamicDim(rank - 1) ? ShapedType::kDynamic : baseTy.getDimSize(rank - 1),
+  };
+  baseTy.dump();
+  for(auto _ : offsets){
+    _.dump();
+  }
+  for(auto _ : sizes){
+    _.dump();
+  }
+  for(auto _ : strides){
+    _.dump();
+  }
+  auto reducedTy =
+      memref::SubViewOp::inferRankReducedResultType(resultShape, baseTy,
+                                                    offsets, sizes, strides)
+          .cast<MemRefType>();
+
+  // IMPORTANT: build with OFR so dynamic sizes/offsets are carried.
+  return b.create<memref::SubViewOp>(loc, reducedTy, base, offsets, sizes, strides);
+}
+
+static void lowerBatchedADORAGemmOp(mlir::ADORA::ADORATensor::GemmOp op) {
+  LLVM_DEBUG(llvm::errs() << "lowerBatchedADORAGemmOp: "<< op;);
+  auto aType = op.getA().getType().dyn_cast<MemRefType>();
+  auto bType = op.getB().getType().dyn_cast<MemRefType>();
+  auto cType = op.getC().getType().dyn_cast<MemRefType>();
+  auto outType = op.getO().getType().dyn_cast<MemRefType>();
+  if (!aType || !bType || !cType || !outType)
+    return;
+  if (aType.getRank() <= 2)
+    return;
+
+  int64_t rank = aType.getRank();
+  SmallVector<int64_t, 4> loopDims;
+  loopDims.reserve(rank - 2);
+  for (int64_t dim = 0; dim < rank - 2; ++dim) {
+    if (!aType.isDynamicDim(dim) && aType.getDimSize(dim) == 1)
+      continue;
+    loopDims.push_back(dim);
+  }
+
+  OpBuilder builder(op);
+  Location loc = op.getLoc();
+
+  SmallVector<Value, 4> outDynSizes;
+  for (int64_t dim = 0; dim < rank; ++dim)
+    if (outType.isDynamicDim(dim))
+      outDynSizes.push_back(getMemRefDimValue(builder, loc, op.getC(), dim));
+
+  Value outAlloc =
+      builder.create<memref::AllocOp>(loc, outType, outDynSizes);
+
+  SmallVector<Value, 4> loopIvs;
+  auto emitGemmSlice = [&](OpBuilder &nestedBuilder) {
+    Value aSubview = createRankReducedSubview(
+        nestedBuilder, loc, op.getA(), loopDims, loopIvs);
+    Value bSubview = createRankReducedSubview(
+        nestedBuilder, loc, op.getB(), loopDims, loopIvs);
+    Value cSubview = createRankReducedSubview(
+        nestedBuilder, loc, op.getC(), loopDims, loopIvs);
+    Value outSubview = createRankReducedSubview(
+        nestedBuilder, loc, outAlloc, loopDims, loopIvs);
+
+    auto gemm2d = nestedBuilder.create<mlir::ADORA::ADORATensor::GemmOp>(
+        loc, outSubview.getType(), aSubview, bSubview, cSubview);
+    nestedBuilder.create<memref::CopyOp>(loc, gemm2d.getO(), outSubview);
+  };
+
+  std::function<void(size_t, OpBuilder &)> buildLoopNest =
+      [&](size_t idx, OpBuilder &nestBuilder) {
+        if (idx == loopDims.size()) {
+          emitGemmSlice(nestBuilder);
+          return;
+        }
+        int64_t dim = loopDims[idx];
+        Value upper = getMemRefDimValue(nestBuilder, loc, op.getA(), dim);
+        auto ubMap =
+            AffineMap::get(0, 1, nestBuilder.getAffineSymbolExpr(0));
+        auto lbMap = AffineMap::getConstantMap(0, nestBuilder.getContext());
+        auto forOp = nestBuilder.create<affine::AffineForOp>(
+            loc,
+            /*lbOperands=*/ValueRange{},
+            /*lbMap=*/lbMap,
+            /*ubOperands=*/ValueRange{upper},
+            /*ubMap=*/ubMap,
+            /*step=*/1);
+        OpBuilder bodyBuilder = OpBuilder::atBlockBegin(forOp.getBody());
+        loopIvs.push_back(forOp.getInductionVar());
+        buildLoopNest(idx + 1, bodyBuilder);
+        loopIvs.pop_back();
+      };
+
+  if (loopDims.empty()) {
+    emitGemmSlice(builder);
+  } else {
+    buildLoopNest(0, builder);
+  }
+
+  op.replaceAllUsesWith(outAlloc);
+  op.erase();
+}
+
+void lowerBatchedADORAGemmOps(ModuleOp module) {
+  SmallVector<mlir::ADORA::ADORATensor::GemmOp, 8> gemmOps;
+  module.walk([&](mlir::ADORA::ADORATensor::GemmOp op) { gemmOps.push_back(op); });
+  for (auto op : gemmOps)
+    if (op)
+      lowerBatchedADORAGemmOp(op);
+}
+
 }
 } // namespace
 } // namespace

@@ -197,7 +197,7 @@ void populateAdoraLoweringONNXTransposeOpPattern(mlir::RewritePatternSet &patter
 void populateAdoraLoweringKrnlGlobalToMemRefGlobal(RewritePatternSet &patterns, MLIRContext *ctx) ;
 
 void FuseONNXOperatorToAdoraTensor(ModuleOp module);
-
+void lowerBatchedADORAGemmOps(ModuleOp module);
 
 #define kTensorSizeThreshold 32
 inline bool isLargeTensor(mlir::Value tensor) {
