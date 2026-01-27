@@ -462,7 +462,8 @@ void populateADORATensorOutlinePattern(RewritePatternSet &patterns,
 { 
   patterns.insert<
       ADORATensorGenericOpToFuncCall<mlir::ADORA::ADORATensor::GemmOp>,
-      ADORATensorGenericOpToFuncCall<mlir::ADORA::ADORATensor::MatMulOp>
+      ADORATensorGenericOpToFuncCall<mlir::ADORA::ADORATensor::MatMulOp>,
+      ADORATensorGenericOpToFuncCall<mlir::ADORA::ADORATensor::ConvOp>
   >(ctx);
 }
 

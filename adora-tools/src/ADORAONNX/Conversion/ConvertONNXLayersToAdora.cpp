@@ -193,6 +193,8 @@ void populateONNXToKrnlConversionPatternInAdora(RewritePatternSet &patterns,
   // adora tensor op type conversion
   patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::GemmOp>>(typeConverter, ctx);
   patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::MatMulOp>>(typeConverter, ctx);
+
+  patterns.insert<ADORATensorTypeConversion<mlir::ADORA::ADORATensor::ConvOp>>(typeConverter, ctx);
 }
 
 struct ConvertONNXLayersToAdoraPass
@@ -291,6 +293,12 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
     return !hasTensor;
   });
 
+  targetTokrnl.addDynamicallyLegalOp<ADORA::ADORATensor::ConvOp>([&](auto op) {
+    auto hasTensor = llvm::any_of(op->getOperandTypes(), [](Type t){ return t.isa<TensorType>(); }) ||
+                     llvm::any_of(op->getResultTypes(), [](Type t){ return t.isa<TensorType>(); });
+    return !hasTensor;
+  });
+
   // Define patterns.
   populateONNXToKrnlConversionPatternInAdora(patterns, typeConverter, &getContext(), dimAnalysis);
   if (failed(applyPartialConversion(module, targetTokrnl, std::move(patterns)))) {
@@ -367,7 +375,7 @@ void ConvertONNXLayersToAdoraPass::runOnOperation()  {
 //   //// set to a 4x4 weight stationary
 //   ADORATensor::SystolicImplInterface Sinterface(newGemm);
 //   // mlir::SmallVector<int64_t> tile = {4,4};
-//   Sinterface.setStationaryKind(MatMulStrategy::WeightStationary);
+//   Sinterface.setStationaryKind(DataflowStrategy::WeightStationary);
 //   Sinterface.setTileSize(ArrayRef<int64_t>({4,4}));
 
 //   matmul_idx++;
